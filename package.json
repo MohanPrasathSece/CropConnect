@@ -1,0 +1,37 @@
+{
+  "name": "crop-connect",
+  "version": "1.0.0",
+  "description": "CropConnect - Decentralized Agricultural Supply Chain Platform",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run blockchain\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm start",
+    "blockchain": "cd blockchain && npx hardhat node",
+    "build": "cd client && npm run build",
+    "test": "npm run test:server && npm run test:client && npm run test:blockchain",
+    "test:server": "cd server && npm test",
+    "test:client": "cd client && npm test",
+    "test:blockchain": "cd blockchain && npx hardhat test",
+    "deploy:contracts": "cd blockchain && npx hardhat run scripts/deploy.js",
+    "seed": "cd server && npm run seed"
+  },
+  "keywords": [
+    "blockchain",
+    "agriculture",
+    "supply-chain",
+    "ethereum",
+    "react",
+    "nodejs"
+  ],
+  "author": "CropConnect Team",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "workspaces": [
+    "client",
+    "server",
+    "blockchain"
+  ]
+}
