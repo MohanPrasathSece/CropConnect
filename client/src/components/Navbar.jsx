@@ -24,39 +24,47 @@ const Navbar = () => {
 
   return (
     <nav className="bg-white/95 backdrop-blur-md shadow-lg border-b border-green-100 sticky top-0 z-50 transition-all duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16 sm:h-18">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="flex justify-between h-12 sm:h-14">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2 sm:space-x-3 group">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl group-hover:scale-110 transition-all duration-300">
-                <span className="text-white font-bold text-lg sm:text-xl group-hover:animate-bounce">🌾</span>
+            <Link to={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2 group">
+              <div className="w-7 h-7 sm:w-9 sm:h-9 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center shadow-md group-hover:shadow-lg group-hover:scale-105 transition-all duration-300">
+                <span className="text-white font-bold text-base sm:text-lg">🌾</span>
               </div>
-              <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent group-hover:from-green-500 group-hover:to-green-700 transition-all duration-300">
+              <span className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent">
                 CropConnect
               </span>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6 lg:space-x-8">
-            <Link to="/marketplace" className="relative group px-3 py-2 text-gray-700 hover:text-green-600 transition-all duration-300 font-medium">
-              <span className="relative z-10">🛒 Marketplace</span>
-              <div className="absolute inset-0 bg-green-50 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300"></div>
-            </Link>
+          <div className="hidden md:flex items-center space-x-4 sm:space-x-6">
+            {isAuthenticated && user?.role === 'farmer' ? (
+              <>
+                <Link to="/dashboard" className="text-gray-700 hover:text-green-600 transition-colors text-sm sm:text-base">
+                  Home
+                </Link>
+                <Link to="/farmer/upload" className="text-gray-700 hover:text-green-600 transition-colors text-sm sm:text-base">
+                  Upload Crops
+                </Link>
+                <Link to="/farmer/crops" className="text-gray-700 hover:text-green-600 transition-colors text-sm sm:text-base">
+                  My Crops
+                </Link>
+                <Link to="/marketplace" className="relative group px-2 py-1 text-gray-700 hover:text-green-600 transition-all duration-300 font-medium text-sm sm:text-base">
+                  <span className="relative z-10">🛒 Marketplace</span>
+                  <div className="absolute inset-0 bg-green-50 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300"></div>
+                </Link>
+              </>
+            ) : (
+              <Link to="/marketplace" className="relative group px-2 py-1 text-gray-700 hover:text-green-600 transition-all duration-300 font-medium text-sm sm:text-base">
+                <span className="relative z-10">🛒 Marketplace</span>
+                <div className="absolute inset-0 bg-green-50 rounded-lg scale-0 group-hover:scale-100 transition-transform duration-300"></div>
+              </Link>
+            )}
             
             {isAuthenticated ? (
               <>
-                {user?.role === 'farmer' && (
-                  <>
-                    <Link to="/farmer/crops" className="text-gray-700 hover:text-green-600 transition-colors">
-                      My Crops
-                    </Link>
-                    <Link to="/farmer/upload" className="text-gray-700 hover:text-green-600 transition-colors">
-                      Upload Crop
-                    </Link>
-                  </>
-                )}
                 
                 {/* Wallet Connection */}
                 <div className="flex items-center space-x-2">
@@ -143,38 +151,42 @@ const Navbar = () => {
         {/* Mobile Navigation */}
         {isOpen && (
           <div className="md:hidden">
-            <div className="px-4 pt-4 pb-6 space-y-3 bg-gradient-to-br from-green-50 to-white border-t border-green-100">
-              <Link
-                to="/marketplace"
-                className="group flex items-center px-4 py-3 text-gray-700 hover:text-green-600 hover:bg-white rounded-xl transition-all duration-300 touch-target"
-                onClick={() => setIsOpen(false)}
-              >
-                <span className="text-lg mr-3 group-hover:scale-110 transition-transform">🛒</span>
-                <span className="font-medium">Marketplace</span>
-              </Link>
-              
-              {isAuthenticated ? (
+            <div className="px-3 pt-3 pb-5 space-y-2.5 bg-gradient-to-br from-green-50 to-white border-t border-green-100">
+              {isAuthenticated && user?.role === 'farmer' ? (
                 <>
-                  {user?.role === 'farmer' && (
-                    <>
-                      <Link
-                        to="/farmer/crops"
-                        className="group flex items-center px-4 py-3 text-gray-700 hover:text-green-600 hover:bg-white rounded-xl transition-all duration-300 touch-target"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <span className="text-lg mr-3">🌾</span>
-                        <span className="font-medium">My Crops</span>
-                      </Link>
-                      <Link
-                        to="/farmer/upload"
-                        className="group flex items-center px-4 py-3 text-gray-700 hover:text-green-600 hover:bg-white rounded-xl transition-all duration-300 touch-target"
-                        onClick={() => setIsOpen(false)}
-                      >
-                        <span className="text-lg mr-3">📤</span>
-                        <span className="font-medium">Upload Crop</span>
-                      </Link>
-                    </>
-                  )}
+                  <Link
+                    to="/dashboard"
+                    className="group flex items-center px-3 py-2 text-gray-700 hover:text-green-600 hover:bg-white rounded-xl transition-all duration-300 touch-target text-sm"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <span className="text-lg mr-3">🏠</span>
+                    <span className="font-medium">Home</span>
+                  </Link>
+                  <Link
+                    to="/farmer/upload"
+                    className="group flex items-center px-3 py-2 text-gray-700 hover:text-green-600 hover:bg-white rounded-xl transition-all duration-300 touch-target text-sm"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <span className="text-lg mr-3">📤</span>
+                    <span className="font-medium">Upload Crops</span>
+                  </Link>
+                  <Link
+                    to="/farmer/crops"
+                    className="group flex items-center px-3 py-2 text-gray-700 hover:text-green-600 hover:bg-white rounded-xl transition-all duration-300 touch-target text-sm"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <span className="text-lg mr-3">🌾</span>
+                    <span className="font-medium">My Crops</span>
+                  </Link>
+                  <Link
+                    to="/marketplace"
+                    className="group flex items-center px-3 py-2 text-gray-700 hover:text-green-600 hover:bg-white rounded-xl transition-all duration-300 touch-target text-sm"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <span className="text-lg mr-3 group-hover:scale-110 transition-transform">🛒</span>
+                    <span className="font-medium">Marketplace</span>
+                  </Link>
+
                   <div className="px-4 py-3">
                     {isConnected ? (
                       <Button
@@ -200,19 +212,31 @@ const Navbar = () => {
                   </div>
                   <button
                     onClick={handleLogout}
-                    className="group flex items-center w-full px-4 py-3 text-gray-700 hover:text-green-600 hover:bg-white rounded-xl transition-all duration-300 touch-target"
+                    className="group flex items-center w-full px-2 py-1.5 text-sm text-gray-700 hover:text-green-600 hover:bg-white rounded-xl transition-all duration-300 touch-target"
                   >
-                    <span className="text-lg mr-3">🚪</span>
+                    <span className="text-base mr-2">🚪</span>
                     <span className="font-medium">Logout</span>
                   </button>
                 </>
+              ) : isAuthenticated ? (
+                // Non-farmer authenticated users: keep Marketplace first
+                <>
+                  <Link
+                    to="/marketplace"
+                    className="group flex items-center px-2 py-1.5 text-sm text-gray-700 hover:text-green-600 hover:bg-white rounded-xl transition-all duration-300 touch-target"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <span className="text-base mr-2 group-hover:scale-110 transition-transform">🛒</span>
+                    <span className="font-medium">Marketplace</span>
+                  </Link>
+                </>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <Link to="/login" onClick={() => setIsOpen(false)}>
-                    <Button variant="ghost" className="w-full">Login</Button>
+                    <Button variant="ghost" className="w-full text-sm">Login</Button>
                   </Link>
                   <Link to="/register" onClick={() => setIsOpen(false)}>
-                    <Button className="w-full">Register</Button>
+                    <Button className="w-full text-sm">Register</Button>
                   </Link>
                 </div>
               )}

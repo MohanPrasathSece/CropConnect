@@ -113,7 +113,7 @@ const CropUpload = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-2xl mx-auto">
           {/* Header */}
-          <div className="flex items-center mb-8">
+          <div className="flex items-center mb-6 sm:mb-8">
             <button
               onClick={() => navigate('/dashboard')}
               className="mr-4 p-2 hover:bg-white rounded-full transition-colors"
@@ -121,22 +121,22 @@ const CropUpload = () => {
               <ArrowLeft className="w-6 h-6 text-gray-600" />
             </button>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent">
                 Upload Your Crop 🌾
               </h1>
-              <p className="text-gray-600 mt-1">Add photos, select crop type, and set quantity</p>
+              <p className="text-gray-600 mt-1 text-sm sm:text-base">Add photos, select crop type, and set quantity</p>
             </div>
           </div>
 
           {/* Upload Form */}
-          <div className="bg-white rounded-3xl shadow-xl p-8">
-            <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="bg-white rounded-3xl shadow-xl p-4 sm:p-8">
+            <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
               {/* Image Upload Section */}
               <div>
-                <label className="block text-lg font-semibold text-gray-800 mb-4">
+                <label className="block text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">
                   📸 Upload Crop Photos *
                 </label>
-                <div className="border-2 border-dashed border-green-300 rounded-2xl p-8 text-center hover:border-green-400 transition-colors">
+                <div className="border-2 border-dashed border-green-300 rounded-2xl p-6 sm:p-8 text-center hover:border-green-400 transition-colors">
                   <input
                     type="file"
                     multiple
@@ -148,11 +148,11 @@ const CropUpload = () => {
                   />
                   <label htmlFor="image-upload" className="cursor-pointer">
                     <div className="flex flex-col items-center">
-                      <Camera className="w-12 h-12 text-green-500 mb-4" />
-                      <p className="text-lg font-medium text-gray-700 mb-2">
+                      <Camera className="w-10 h-10 sm:w-12 sm:h-12 text-green-500 mb-3 sm:mb-4" />
+                      <p className="text-base sm:text-lg font-medium text-gray-700 mb-1 sm:mb-2">
                         Click to upload photos
                       </p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-xs sm:text-sm text-gray-500">
                         Upload up to 3 clear photos of your crop
                       </p>
                     </div>
@@ -184,7 +184,7 @@ const CropUpload = () => {
 
               {/* Crop Selection */}
               <div>
-                <label className="block text-lg font-semibold text-gray-800 mb-4">
+                <label className="block text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">
                   🌾 Select Crop Type *
                 </label>
                 <select
@@ -192,7 +192,7 @@ const CropUpload = () => {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full px-4 py-4 text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-3 sm:py-4 text-base sm:text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 >
                   <option value="">Choose your crop...</option>
                   {odishaCrops.map((crop) => (
@@ -204,9 +204,9 @@ const CropUpload = () => {
               </div>
 
               {/* Quantity Section */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                 <div>
-                  <label className="block text-lg font-semibold text-gray-800 mb-4">
+                  <label className="block text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">
                     ⚖️ Quantity *
                   </label>
                   <input
@@ -217,20 +217,20 @@ const CropUpload = () => {
                     step="0.1"
                     value={formData.quantity}
                     onChange={handleChange}
-                    className="w-full px-4 py-4 text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-3 sm:py-4 text-base sm:text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                     placeholder="Enter quantity"
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-lg font-semibold text-gray-800 mb-4">
+                  <label className="block text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">
                     📦 Unit
                   </label>
                   <select
                     name="unit"
                     value={formData.unit}
                     onChange={handleChange}
-                    className="w-full px-4 py-4 text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-full px-4 py-3 sm:py-4 text-base sm:text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   >
                     <option value="kg">Kilograms (kg)</option>
                     <option value="quintal">Quintal</option>
@@ -242,7 +242,7 @@ const CropUpload = () => {
 
               {/* Price (Optional) */}
               <div>
-                <label className="block text-lg font-semibold text-gray-800 mb-4">
+                <label className="block text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">
                   💰 Price per {formData.unit || 'unit'} (₹) <span className="text-sm font-normal text-gray-500">(Optional)</span>
                 </label>
                 <input
@@ -252,27 +252,27 @@ const CropUpload = () => {
                   step="0.01"
                   value={formData.pricePerUnit}
                   onChange={handleChange}
-                  className="w-full px-4 py-4 text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  className="w-full px-4 py-3 sm:py-4 text-base sm:text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
                   placeholder="Enter price (leave empty for market rate)"
                 />
               </div>
 
 
               {/* Submit Button */}
-              <div className="pt-6">
+              <div className="pt-4 sm:pt-6">
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white text-xl font-bold py-4 px-8 rounded-2xl hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white text-base sm:text-xl font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-2xl hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
                 >
                   {loading ? (
                     <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-b-2 border-white mr-3"></div>
                       Uploading...
                     </div>
                   ) : (
                     <div className="flex items-center justify-center">
-                      <Upload className="w-6 h-6 mr-3" />
+                      <Upload className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" />
                       Upload Crop to Marketplace
                     </div>
                   )}

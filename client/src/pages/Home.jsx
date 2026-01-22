@@ -195,7 +195,7 @@ const Home = () => {
                 Farmer Upload
               </h3>
               <p className="text-sm sm:text-base text-gray-600 leading-relaxed px-2">
-                Farmers upload produce info and images, stored in MongoDB
+                Farmers create lots with crop details, images, and harvest data stored in MongoDB
               </p>
             </div>
 
@@ -206,10 +206,10 @@ const Home = () => {
                 </div>
               </div>
               <h3 className="mt-6 sm:mt-8 text-lg sm:text-xl font-bold mb-2 sm:mb-3 text-gray-900 group-hover:text-green-600 transition-colors">
-                AI Evaluation
+                Aggregators
               </h3>
               <p className="text-sm sm:text-base text-gray-600 leading-relaxed px-2">
-                AI evaluates product quality and price stored in Ethereum
+                Aggregators collect, grade with AI assistance, package, and generate a QR-traceable batch
               </p>
             </div>
 
@@ -220,10 +220,10 @@ const Home = () => {
                 </div>
               </div>
               <h3 className="mt-6 sm:mt-8 text-lg sm:text-xl font-bold mb-2 sm:mb-3 text-gray-900 group-hover:text-green-600 transition-colors">
-                Aggregator Collection
+                Retailers
               </h3>
               <p className="text-sm sm:text-base text-gray-600 leading-relaxed px-2">
-                Aggregators collect and verify crops with quality checks
+                Retailers receive batches and list inventory with pricing and availability
               </p>
             </div>
 
@@ -234,10 +234,10 @@ const Home = () => {
                 </div>
               </div>
               <h3 className="mt-6 sm:mt-8 text-lg sm:text-xl font-bold mb-2 sm:mb-3 text-gray-900 group-hover:text-green-600 transition-colors">
-                Smart Contracts
+                Customer Purchase
               </h3>
               <p className="text-sm sm:text-base text-gray-600 leading-relaxed px-2">
-                Buyer approves and smart contract triggers automatic payment
+                Customers browse/scan QR, place orders, and get full journey details from farm to shelf
               </p>
             </div>
 
@@ -247,11 +247,11 @@ const Home = () => {
                   <span className="group-hover:scale-110 transition-transform">5</span>
                 </div>
               </div>
-              <h3 className="mt-6 sm:mt-8 text-lg sm:text-xl font-bold mb-2 sm:mb-3 text-gray-900 group-hover:text-green-600 transition-colors">
-                Consumer Purchase
+              <h3 className="mt-6 sm:mt-8 text-lg sm:text-xl font-bold mb-2 sm:mb-3 text-gray-900 group-hover:text-green-600 transition-colors whitespace-nowrap">
+                Settlement & Traceability
               </h3>
               <p className="text-sm sm:text-base text-gray-600 leading-relaxed px-2">
-                Consumers buy from retailers with full traceability
+                Smart contracts release payments and every handoff is recorded on-chain with QR traceability
               </p>
             </div>
             </div>

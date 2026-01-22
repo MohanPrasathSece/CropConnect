@@ -4,8 +4,26 @@ import { Link } from 'react-router-dom';
 const Footer = () => {
   return (
     <footer className="bg-gray-900 text-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-12">
+        {/* Mobile: compact footer */}
+        <div className="sm:hidden">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-2">
+              <div className="w-7 h-7 bg-green-600 rounded-md flex items-center justify-center">
+                <span className="text-white font-bold text-base">🌾</span>
+              </div>
+              <span className="text-lg font-bold">CropConnect</span>
+            </div>
+            <div className="flex items-center space-x-3 text-gray-300">
+              <Link to="/marketplace" className="text-sm hover:text-white">Marketplace</Link>
+              <Link to="/contact" className="text-sm hover:text-white">Contact</Link>
+            </div>
+          </div>
+          <p className="text-xs text-gray-400">© 2024 CropConnect. All rights reserved.</p>
+        </div>
+
+        {/* Desktop/Tablet: full footer */}
+        <div className="hidden sm:grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center space-x-2 mb-4">
@@ -89,7 +107,8 @@ const Footer = () => {
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8 text-center">
+        <div className="hidden sm:block border-top mt-8"></div>
+        <div className="hidden sm:block border-t border-gray-800 mt-8 pt-8 text-center">
           <p className="text-gray-400">
             © 2024 CropConnect. All rights reserved. Built with ❤️ for farmers.
           </p>

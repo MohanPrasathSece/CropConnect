@@ -5,9 +5,6 @@ import {
   Package, 
   ShoppingCart, 
   TrendingUp, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle,
   Eye,
   Edit,
   Plus,
@@ -19,7 +16,8 @@ import {
   Mail,
   Star,
   Truck,
-  DollarSign
+  DollarSign,
+  ChevronRight
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -69,6 +67,22 @@ const MyCrops = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Map order status to step (1..4) for progress UI
+  const getStatusStep = (status) => {
+    switch (status) {
+      case 'pending': return 1;
+      case 'confirmed': return 2;
+      case 'in_transit': return 3;
+      case 'delivered': return 4;
+      default: return 1;
+    }
+  };
+
+  const formatStatus = (status) => {
+    if (!status) return 'Pending';
+    return status.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
   const fetchMockCrops = async () => {
@@ -281,9 +295,172 @@ const MyCrops = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+      <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
+        {/* Mobile: Compact Stats Chips (hidden for minimal UI) */}
+        <div className="hidden sm:hidden mb-4">
+          <div className="flex gap-2 overflow-x-auto">
+            <div className="min-w-[150px] bg-white rounded-xl px-3 py-2 shadow border border-gray-100">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1 text-[11px] text-gray-500">
+                  <Package className="w-3.5 h-3.5 text-green-600" />
+                  Total Crops
+                </span>
+                <div className="w-6 h-6 rounded-md bg-green-50 flex items-center justify-center">
+                  <Package className="w-3.5 h-3.5 text-green-600" />
+                </div>
+              </div>
+              <div className="mt-1 text-base font-bold text-gray-900">{stats.totalCrops || 0}</div>
+            </div>
+            <div className="min-w-[150px] bg-white rounded-xl px-3 py-2 shadow border border-gray-100">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1 text-[11px] text-gray-500">
+                  <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
+                  Active Listings
+                </span>
+                <div className="w-6 h-6 rounded-md bg-blue-50 flex items-center justify-center">
+                  <TrendingUp className="w-3.5 h-3.5 text-blue-600" />
+                </div>
+              </div>
+              <div className="mt-1 text-base font-bold text-gray-900">{stats.activeCrops || 0}</div>
+            </div>
+            <div className="min-w-[150px] bg-white rounded-xl px-3 py-2 shadow border border-gray-100">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1 text-[11px] text-gray-500">
+                  <ShoppingCart className="w-3.5 h-3.5 text-yellow-600" />
+                  Total Orders
+                </span>
+                <div className="w-6 h-6 rounded-md bg-yellow-50 flex items-center justify-center">
+                  <ShoppingCart className="w-3.5 h-3.5 text-yellow-600" />
+                </div>
+              </div>
+              <div className="mt-1 text-base font-bold text-gray-900">{stats.totalOrders || 0}</div>
+            </div>
+            <div className="min-w-[170px] bg-white rounded-xl px-3 py-2 shadow border border-gray-100">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1 text-[11px] text-gray-500">
+                  <DollarSign className="w-3.5 h-3.5 text-purple-600" />
+                  Total Revenue
+                </span>
+                <div className="w-6 h-6 rounded-md bg-purple-50 flex items-center justify-center">
+                  <DollarSign className="w-3.5 h-3.5 text-purple-600" />
+                </div>
+              </div>
+              <div className="mt-1 text-base font-bold text-gray-900">₹{stats.totalRevenue || 0}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Mobile: Crops first (minimal list) */}
+        <div className="block sm:hidden mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-base font-bold text-gray-900">Your Crops</h2>
+            <Link
+              to="/farmer/upload"
+              className="text-sm sm:text-base px-4 py-2 sm:px-5 sm:py-2.5 rounded-xl bg-green-600 text-white shadow hover:bg-green-700 active:scale-[0.99] transition"
+            >
+              + Upload
+            </Link>
+          </div>
+          {crops.length === 0 ? (
+            <div className="text-center py-8 bg-white rounded-xl shadow">
+              <Package className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+              <p className="text-sm text-gray-500 mb-3">No crops yet</p>
+              <Link to="/farmer/upload" className="inline-block text-xs bg-green-600 text-white px-3 py-2 rounded-lg">Upload First Crop</Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {crops.map((crop, idx) => (
+                <div key={crop._id || crop.id} className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-center">
+                    <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                      <img
+                        src={
+                          crop.images && crop.images.length > 0
+                            ? (typeof crop.images[0] === 'string' ? crop.images[0] : crop.images[0].url)
+                            : getDefaultCropImage(crop.name)
+                        }
+                        alt={crop.name}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { e.target.src = getDefaultCropImage(crop.name); }}
+                      />
+                      {/* Tiny status dot for minimal UI */}
+                      <span className="absolute top-1 left-1 inline-block w-2 h-2 rounded-full bg-green-500"></span>
+                    </div>
+                    <div className="ml-3 flex-1">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-gray-900 truncate capitalize">{crop.name}</h3>
+                        <ChevronRight className="w-5 h-5 text-gray-300" />
+                      </div>
+                      <div className="mt-1 flex items-center justify-between text-sm text-gray-700">
+                        <span>{crop.quantity} {crop.unit}</span>
+                        <span className="font-semibold">₹{crop.pricePerUnit}/{crop.unit}</span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs">
+                        <span className="text-blue-600">Orders: {crop.totalOrders || 0}</span>
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to={`/crop/${crop._id || crop.id}`}
+                            className="px-3 py-1.5 rounded-md border border-gray-200 text-gray-800 hover:bg-gray-50 text-sm"
+                          >
+                            View
+                          </Link>
+                          <button
+                            type="button"
+                            onClick={() => { setActiveTab('orders'); setSearchTerm(crop.name || ''); }}
+                            className="px-3 py-1.5 rounded-md bg-green-600 text-white hover:bg-green-700 text-sm"
+                          >
+                            View Orders
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Mobile: Orders panel when 'View Orders' is clicked */}
+        {activeTab === 'orders' && (
+          <div className="block sm:hidden mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-bold text-gray-900">Orders</h2>
+              <button
+                onClick={() => { setActiveTab('crops'); setSearchTerm(''); }}
+                className="text-xs text-green-700 font-medium"
+              >
+                Back to Crops
+              </button>
+            </div>
+            {filteredOrders.length === 0 ? (
+              <div className="text-center py-8 bg-white rounded-xl border border-gray-200">
+                <ShoppingCart className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">No orders found for this crop.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {filteredOrders.map((order) => (
+                  <div key={order.orderId} className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">#{order.orderId}</p>
+                        <p className="text-xs text-gray-600">{order.cropName} • {order.quantity} {order.unit}</p>
+                      </div>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(order.status)}`}>{formatStatus(order.status)}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Buyer: {order.buyerName}</span>
+                      <span className="text-base font-bold text-green-700">₹{order.totalAmount}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {/* Desktop/Tablet Header */}
+        <div className="hidden sm:flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent">
               My Farm Dashboard
@@ -299,8 +476,8 @@ const MyCrops = () => {
           </Link>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Desktop/Tablet Stats Cards */}
+        <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-2xl p-6 shadow-lg hover:shadow-xl transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -350,8 +527,8 @@ const MyCrops = () => {
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
+        {/* Tabs: show only on tablet/desktop to avoid duplication on mobile */}
+        <div className="hidden sm:block bg-white rounded-2xl shadow-xl overflow-hidden">
           <div className="border-b border-gray-200">
             <div className="flex">
               <button
@@ -383,7 +560,7 @@ const MyCrops = () => {
             </div>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             {activeTab === 'crops' ? (
               <CropsTab crops={crops} getStatusColor={getStatusColor} />
             ) : (

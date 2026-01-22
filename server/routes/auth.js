@@ -8,7 +8,7 @@ const router = express.Router();
 // @access  Public
 router.post('/register', async (req, res) => {
   try {
-    const { name, email, password, role, phone } = req.body;
+    const { name, email, password, role, phone, address } = req.body;
 
     // Basic validation
     if (!name || !email || !password || !role || !phone) {
@@ -33,7 +33,17 @@ router.post('/register', async (req, res) => {
       email,
       password, // Plain text password
       role,
-      phone
+      phone,
+      // If address is provided from client (e.g., auto-detected during registration), save it
+      ...(address ? { address: {
+        village: address.village || '',
+        district: address.district || '',
+        state: address.state || '',
+        pincode: address.pincode || '',
+        coordinates: address.coordinates || undefined,
+        fullAddress: address.fullAddress || '',
+        isLocationDetected: address.isLocationDetected === true
+      } } : {})
     });
 
     await user.save();

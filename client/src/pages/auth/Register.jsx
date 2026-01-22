@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import locationService from '../../utils/locationService';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -56,10 +57,29 @@ const Register = () => {
     setError('');
     
     const { confirmPassword, ...registerData } = formData;
-    
+
+    // If farmer, attempt to auto-detect location one-time during registration
+    if (registerData.role === 'farmer') {
+      try {
+        const loc = await locationService.getLocationWithAddress();
+        registerData.address = {
+          village: loc.village,
+          district: loc.district,
+          state: loc.state,
+          pincode: loc.pincode,
+          coordinates: loc.coordinates,
+          fullAddress: loc.fullAddress,
+          isLocationDetected: true
+        };
+      } catch (locErr) {
+        // Proceed without blocking registration if location detection fails
+        console.warn('Location detection during registration failed:', locErr);
+      }
+    }
+
     // Debug: Log the data being sent
     console.log('Registration data:', registerData);
-    
+
     const result = await register(registerData);
     
     if (result.success) {
