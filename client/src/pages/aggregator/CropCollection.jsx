@@ -1,21 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-  Camera, 
-  Upload, 
-  CheckCircle, 
-  AlertCircle, 
-  TrendingUp, 
+import {
+  Camera,
+  CheckCircle,
+  AlertCircle,
+  TrendingUp,
   Package,
   MapPin,
-  Calendar,
+  Clock,
   DollarSign,
-  Star,
   Brain,
   Zap,
-  Shield
+  Shield,
+  Loader2,
+  ArrowLeft,
+  Warehouse,
+  Thermometer,
+  Droplets,
+  ChevronRight,
+  Sparkles,
+  Info,
+  Activity,
+  User,
+  Fingerprint
 } from 'lucide-react';
-import axios from 'axios';
+import { aggregatorApi, aiQualityApi, mlApi } from '../../utils/api';
 
 const CropCollection = () => {
   const location = useLocation();
@@ -24,11 +33,11 @@ const CropCollection = () => {
 
   const [formData, setFormData] = useState({
     cropId: cropData?.crop?.id || '',
-    collectedQuantity: '',
+    collectedQuantity: cropData?.crop?.quantity || '',
     collectedUnit: cropData?.crop?.unit || 'kg',
     purchasePrice: '',
     collectionLocation: {
-      farmAddress: '',
+      farmAddress: cropData?.farmer?.address?.full_address || cropData?.farmer?.address || '',
       district: cropData?.crop?.farmLocation?.district || '',
       state: cropData?.crop?.farmLocation?.state || '',
       gpsCoordinates: {
@@ -37,12 +46,12 @@ const CropCollection = () => {
       }
     },
     storageDetails: {
-      facilityName: '',
-      facilityAddress: '',
+      facilityName: 'Regional Warehouse A-1',
+      facilityAddress: 'Bhubaneswar Logistics Hub, Odisha',
       storageType: 'warehouse',
       storageConditions: {
-        temperature: '',
-        humidity: '',
+        temperature: '24',
+        humidity: '60',
         ventilation: 'good'
       }
     },
@@ -50,19 +59,27 @@ const CropCollection = () => {
   });
 
   const [qualityImages, setQualityImages] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
   const [aiAnalysis, setAiAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [verificationMode, setVerificationMode] = useState('trained'); // 'ai' or 'trained'
+  const [qualityInputs, setQualityInputs] = useState({
+    color: 2,
+    size: 2,
+    texture: 2,
+    moisture: 14,
+    purity: 98
+  });
 
   useEffect(() => {
     if (!cropData) {
-      navigate('/aggregator/scan-qr');
+      navigate('/aggregator/dashboard');
       return;
     }
 
-    // Get current location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -85,20 +102,21 @@ const CropCollection = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      if (child.includes('.')) {
-        const [subParent, subChild] = child.split('.');
+      const parts = name.split('.');
+      if (parts.length === 3) {
+        const [parent, subParent, child] = parts;
         setFormData(prev => ({
           ...prev,
           [parent]: {
             ...prev[parent],
             [subParent]: {
               ...prev[parent][subParent],
-              [subChild]: value
+              [child]: value
             }
           }
         }));
       } else {
+        const [parent, child] = parts;
         setFormData(prev => ({
           ...prev,
           [parent]: {
@@ -115,54 +133,60 @@ const CropCollection = () => {
     }
   };
 
-  const handleImageUpload = (e) => {
+  const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
     setQualityImages(files);
-    
-    // Simulate AI analysis when images are uploaded
-    if (files.length > 0) {
-      performAIAnalysis(files);
-    }
+    const previews = files.map(file => URL.createObjectURL(file));
+    setImagePreviews(previews);
   };
 
-  const performAIAnalysis = async (images) => {
+  const handleQualityInputChange = (e) => {
+    setQualityInputs({ ...qualityInputs, [e.target.name]: parseFloat(e.target.value) });
+  };
+
+  const triggerAIAnalysis = async () => {
+    if (verificationMode === 'ai' && qualityImages.length === 0) {
+      alert("Please capture at least one physical intake sample.");
+      return;
+    }
+
     setAnalyzing(true);
     setError('');
 
     try {
-      // Simulate AI processing delay
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      if (verificationMode === 'ai') {
+        const fd = new FormData();
+        qualityImages.forEach(img => fd.append('images', img));
+        fd.append('cropType', cropData?.crop?.name || 'crop');
 
-      // Mock AI analysis results
-      const mockAnalysis = {
-        overallGrade: ['Premium', 'A', 'B', 'C'][Math.floor(Math.random() * 4)],
-        qualityScore: Math.floor(Math.random() * 40) + 60,
-        visualInspection: {
-          color: ['Excellent', 'Good', 'Fair'][Math.floor(Math.random() * 3)],
-          texture: ['Uniform', 'Slightly Varied', 'Inconsistent'][Math.floor(Math.random() * 3)],
-          size: ['Uniform', 'Mixed', 'Small'][Math.floor(Math.random() * 3)],
-          uniformity: Math.floor(Math.random() * 30) + 70
-        },
-        defectDetection: Math.random() > 0.7 ? [{
-          defectType: ['Insect Damage', 'Discoloration', 'Cracks', 'Foreign Matter'][Math.floor(Math.random() * 4)],
-          severity: ['Low', 'Medium', 'High'][Math.floor(Math.random() * 3)],
-          affectedPercentage: Math.floor(Math.random() * 15) + 1
-        }] : [],
-        moistureContent: Math.floor(Math.random() * 10) + 10,
-        purityLevel: Math.floor(Math.random() * 20) + 80,
-        contaminants: Math.random() > 0.8 ? ['Dust', 'Stones'] : [],
-        pesticidesDetected: Math.random() > 0.9,
-        organicCompliance: Math.random() > 0.3,
-        marketRecommendation: {
-          suggestedPrice: Math.floor(Math.random() * 20) + 30,
-          marketDemand: ['High', 'Medium', 'Low'][Math.floor(Math.random() * 3)],
-          bestMarkets: ['Local Market', 'Export', 'Processing Unit']
+        const response = await aiQualityApi.analyze(fd);
+
+        if (response.data.success) {
+          setAiAnalysis(response.data.analysis);
+        } else {
+          throw new Error('Analysis protocol failed');
         }
-      };
+      } else {
+        // Trained ML Mode
+        const response = await mlApi.getTrainedQuality(qualityInputs);
+        if (response.data.success) {
+          // Format as required by existing components
+          setAiAnalysis({
+            ...response.data,
+            visualInspection: {
+              color: ['Poor', 'Fair', 'Excellent'][qualityInputs.color],
+              texture: ['Inconsistent', 'Slightly Varied', 'Uniform'][qualityInputs.texture],
+              size: ['Small', 'Mixed', 'Uniform'][qualityInputs.size]
+            },
+            moistureContent: qualityInputs.moisture,
+            purityLevel: qualityInputs.purity
+          });
+        }
+      }
 
-      setAiAnalysis(mockAnalysis);
-    } catch (error) {
-      setError('AI analysis failed. Please try again.');
+    } catch (err) {
+      console.error('Analysis error:', err);
+      setError('Analysis protocol failed. Please re-check parameters.');
     } finally {
       setAnalyzing(false);
     }
@@ -170,495 +194,444 @@ const CropCollection = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!aiAnalysis) {
+      setError("Neural Quality Assessment is mandatory for Regional Intake.");
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
-      const formDataToSend = new FormData();
-      
-      // Add form fields
-      Object.keys(formData).forEach(key => {
-        if (typeof formData[key] === 'object' && formData[key] !== null) {
-          formDataToSend.append(key, JSON.stringify(formData[key]));
-        } else {
-          formDataToSend.append(key, formData[key]);
-        }
-      });
+      const payload = {
+        cropId: cropData.crop.id,
+        collectedQuantity: parseFloat(formData.collectedQuantity),
+        collectedUnit: formData.collectedUnit,
+        purchasePrice: parseFloat(formData.purchasePrice),
+        collectionLocation: formData.collectionLocation,
+        notes: formData.notes,
+        qualityAssessment: aiAnalysis
+      };
 
-      // Add quality images
-      qualityImages.forEach((image, index) => {
-        formDataToSend.append('qualityImages', image);
-      });
-
-      const response = await axios.post('/api/v1/aggregator/collect-crop', formDataToSend, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      });
+      const response = await aggregatorApi.collectCrop(payload);
 
       if (response.data.success) {
         setSuccess(true);
         setTimeout(() => {
-          navigate('/aggregator/collections');
+          navigate('/aggregator/dashboard');
         }, 3000);
       }
-    } catch (error) {
-      setError(error.response?.data?.message || 'Failed to collect crop');
+    } catch (err) {
+      console.error("Collection submission failed:", err);
+      setError(err.response?.data?.message || 'Intake Synchronization Failure');
     } finally {
       setLoading(false);
     }
   };
 
-  const getGradeColor = (grade) => {
-    const colors = {
-      'Premium': 'text-purple-600 bg-purple-100',
-      'A': 'text-green-600 bg-green-100',
-      'B': 'text-blue-600 bg-blue-100',
-      'C': 'text-yellow-600 bg-yellow-100'
-    };
-    return colors[grade] || 'text-gray-600 bg-gray-100';
-  };
-
   if (success) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-12 h-12 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Collection Successful!
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Crop has been collected, quality checked, and stored on blockchain successfully.
-          </p>
-          <div className="animate-pulse text-sm text-gray-500">
-            Redirecting to collections...
-          </div>
+      <div className="flex flex-col items-center justify-center min-h-[70vh] text-center space-y-10 animate-in zoom-in duration-500">
+        <div className="w-32 h-32 bg-emerald-50 rounded-[48px] flex items-center justify-center shadow-2xl shadow-emerald-500/10 border border-emerald-100 relative">
+          <div className="absolute inset-0 bg-emerald-500/10 rounded-[48px] animate-ping" />
+          <CheckCircle className="w-16 h-16 text-emerald-500 relative z-10" />
+        </div>
+        <div className="space-y-4">
+          <h2 className="text-4xl font-bold text-slate-900 tracking-tighter">Intake Protocol Finalized</h2>
+          <p className="text-slate-500 font-bold uppercase tracking-[0.2em] text-xs">Regional Logistics Network Updated • Blockchain Entry Confirmed</p>
+        </div>
+        <div className="flex items-center gap-4 px-10 py-5 bg-slate-900 rounded-[32px] text-white shadow-2xl shadow-slate-900/20">
+          <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em]">Redirecting to Node Dashboard...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            🏭 Crop Collection & Quality Assessment
-          </h1>
-          <p className="text-gray-600">
-            Collect crop from farmer with AI-powered quality analysis and blockchain storage
-          </p>
+    <div className="max-w-6xl mx-auto space-y-12 pb-20 animate-in fade-in duration-700">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+        <div className="flex items-center gap-6">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-5 bg-white border border-slate-100 rounded-[28px] hover:bg-slate-50 transition-all shadow-sm group"
+          >
+            <ArrowLeft className="w-6 h-6 text-slate-400 group-hover:text-emerald-500" />
+          </button>
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Regional Cargo Intake</h1>
+            <p className="text-sm text-slate-500 font-medium flex items-center gap-2 mt-1">
+              <Shield className="w-4 h-4 text-emerald-500" />
+              Advanced Quality Verification & Logistics Ledger Optimization
+            </p>
+          </div>
         </div>
+        <div className="hidden lg:flex items-center gap-4 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="p-3 bg-blue-50 rounded-xl">
+            <Activity className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="pr-4">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Network Signal</p>
+            <p className="text-sm font-bold text-slate-900 mt-1">Optimized</p>
+          </div>
+        </div>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column - Crop Details & Collection Info */}
-            <div className="space-y-6">
-              {/* Crop Summary */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <Package className="w-6 h-6 mr-2 text-green-600" />
-                  Crop Summary
-                </h2>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Crop Name</label>
-                    <p className="text-lg font-semibold text-gray-900">{cropData?.crop?.name}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Variety</label>
-                    <p className="text-lg font-semibold text-gray-900">{cropData?.crop?.variety}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Available</label>
-                    <p className="text-lg font-semibold text-gray-900">
-                      {cropData?.crop?.quantity} {cropData?.crop?.unit}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-600">Farmer Price</label>
-                    <p className="text-lg font-semibold text-gray-900">
-                      ₹{cropData?.crop?.pricePerUnit}/{cropData?.crop?.unit}
-                    </p>
-                  </div>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+        {/* Main Parameters */}
+        <div className="lg:col-span-8 space-y-12">
+          {/* Manifest Summary */}
+          <div className="bg-white rounded-[56px] p-12 border border-slate-100 shadow-sm relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-full blur-[80px] group-hover:bg-blue-50/50 transition-colors duration-1000" />
+            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-10 flex items-center gap-4 relative z-10">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              Source Manifest Extraction
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 relative z-10">
+              <div className="space-y-2">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Asset Class</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-3xl font-bold text-slate-900 tracking-tighter capitalize">{cropData?.crop?.name}</p>
                 </div>
+                <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">{cropData?.crop?.variety}</p>
               </div>
-
-              {/* Collection Details */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <DollarSign className="w-6 h-6 mr-2 text-blue-600" />
-                  Collection Details
-                </h2>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Quantity to Collect *
-                      </label>
-                      <input
-                        type="number"
-                        name="collectedQuantity"
-                        required
-                        min="0"
-                        max={cropData?.crop?.quantity}
-                        step="0.01"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        value={formData.collectedQuantity}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Unit
-                      </label>
-                      <select
-                        name="collectedUnit"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        value={formData.collectedUnit}
-                        onChange={handleInputChange}
-                      >
-                        <option value="kg">Kilograms</option>
-                        <option value="tons">Tons</option>
-                        <option value="bags">Bags</option>
-                        <option value="quintal">Quintal</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Purchase Price (Total) *
-                    </label>
-                    <input
-                      type="number"
-                      name="purchasePrice"
-                      required
-                      min="0"
-                      step="0.01"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      value={formData.purchasePrice}
-                      onChange={handleInputChange}
-                      placeholder="Enter total purchase amount"
-                    />
-                    {formData.collectedQuantity && formData.purchasePrice && (
-                      <p className="text-sm text-gray-600 mt-1">
-                        Price per unit: ₹{(formData.purchasePrice / formData.collectedQuantity).toFixed(2)}
-                      </p>
-                    )}
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Potential Volume</p>
+                <p className="text-3xl font-bold text-slate-900 tracking-tighter">{cropData?.crop?.quantity} <span className="text-lg text-slate-300">{cropData?.crop?.unit}</span></p>
               </div>
-
-              {/* Location Details */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <MapPin className="w-6 h-6 mr-2 text-red-600" />
-                  Collection Location
-                </h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Farm Address *
-                    </label>
-                    <input
-                      type="text"
-                      name="collectionLocation.farmAddress"
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      value={formData.collectionLocation.farmAddress}
-                      onChange={handleInputChange}
-                      placeholder="Complete farm address"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        District *
-                      </label>
-                      <input
-                        type="text"
-                        name="collectionLocation.district"
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        value={formData.collectionLocation.district}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        State *
-                      </label>
-                      <input
-                        type="text"
-                        name="collectionLocation.state"
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                        value={formData.collectionLocation.state}
-                        onChange={handleInputChange}
-                      />
-                    </div>
-                  </div>
+              <div className="space-y-2">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Producer Entity</p>
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-slate-400" />
+                  <p className="text-sm font-bold text-slate-800 truncate">ID: {cropData?.farmer?.id?.slice(0, 12)}</p>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Right Column - Quality Assessment */}
-            <div className="space-y-6">
-              {/* Image Upload for AI Analysis */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <Brain className="w-6 h-6 mr-2 text-purple-600" />
-                  AI Quality Assessment
-                </h2>
-                
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Upload Quality Check Images
-                    </label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-500 transition-colors">
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                        id="quality-images"
-                      />
-                      <label htmlFor="quality-images" className="cursor-pointer">
-                        <Camera className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                        <p className="text-gray-600">
-                          Click to upload quality check images
-                        </p>
-                        <p className="text-sm text-gray-500 mt-2">
-                          Upload multiple angles for better AI analysis
-                        </p>
-                      </label>
-                    </div>
-                    
-                    {qualityImages.length > 0 && (
-                      <div className="mt-4">
-                        <p className="text-sm text-gray-600 mb-2">
-                          {qualityImages.length} image(s) selected
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {qualityImages.map((image, index) => (
-                            <div key={index} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
-                              {image.name}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
+          {/* Quality Verification Protocol */}
+          <div className="bg-slate-900 rounded-[56px] p-12 text-white relative overflow-hidden shadow-2xl shadow-slate-900/30 group">
+            <div className="absolute -top-40 -right-40 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px] transition-all duration-1000 group-hover:bg-emerald-500/20" />
 
-                  {/* AI Analysis Progress */}
-                  {analyzing && (
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <div className="flex items-center">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-3"></div>
-                        <div>
-                          <p className="font-medium text-blue-900">🤖 AI Analysis in Progress</p>
-                          <p className="text-sm text-blue-700">
-                            Analyzing crop quality, detecting defects, and generating recommendations...
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-3 bg-blue-200 rounded-full h-2">
-                        <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{width: '60%'}}></div>
-                      </div>
-                    </div>
-                  )}
+            <div className="relative z-10 space-y-10">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 border-b border-white/10 pb-10">
+                <div>
+                  <h2 className="text-[10px] font-bold text-emerald-400 uppercase tracking-[0.3em] mb-3">Quality Matrix Hub</h2>
+                  <h3 className="text-4xl font-bold tracking-tighter">Verification Protocol</h3>
+                </div>
+                <div className="flex bg-white/5 p-1.5 rounded-2xl border border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setVerificationMode('trained')}
+                    className={`px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${verificationMode === 'trained' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-white/40 hover:text-white'}`}
+                  >
+                    Trained ML
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVerificationMode('ai')}
+                    className={`px-6 py-3 rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all ${verificationMode === 'ai' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'text-white/40 hover:text-white'}`}
+                  >
+                    Gemini AI
+                  </button>
+                </div>
+              </div>
 
-                  {/* AI Analysis Results */}
-                  {aiAnalysis && (
-                    <div className="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-lg border border-purple-200">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                        <Zap className="w-5 h-5 mr-2 text-purple-600" />
-                        AI Analysis Results
-                      </h3>
-                      
-                      <div className="grid grid-cols-2 gap-4 mb-4">
-                        <div className="text-center">
-                          <div className={`inline-flex px-4 py-2 rounded-full font-semibold ${getGradeColor(aiAnalysis.overallGrade)}`}>
-                            Grade: {aiAnalysis.overallGrade}
+              {!aiAnalysis ? (
+                <div className="space-y-8">
+                  {verificationMode === 'ai' ? (
+                    <div className="space-y-8">
+                      <div className="border-2 border-dashed border-white/10 rounded-[40px] p-16 text-center group/capture hover:border-emerald-500/50 hover:bg-white/5 transition-all cursor-pointer relative">
+                        <input
+                          type="file" multiple accept="image/*"
+                          onChange={handleImageChange}
+                          className="absolute inset-0 opacity-0 cursor-pointer z-20"
+                        />
+                        <div className="flex flex-col items-center gap-6 relative z-10">
+                          <div className="w-20 h-20 bg-white/5 rounded-[28px] flex items-center justify-center border border-white/10">
+                            <Camera className="w-10 h-10 text-white/20 group-hover/capture:text-emerald-400 transition-colors" />
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-base font-bold text-white/80 uppercase tracking-widest">Document Physical Sample</p>
+                            <p className="text-[10px] text-white/40 font-bold uppercase tracking-[0.2em]">Neural Vision Analysis</p>
                           </div>
                         </div>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-900">
-                            {aiAnalysis.qualityScore}/100
-                          </div>
-                          <div className="text-sm text-gray-600">Quality Score</div>
-                        </div>
                       </div>
-
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="font-medium">Color:</span>
-                          <span className="ml-2 text-gray-700">{aiAnalysis.visualInspection.color}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Texture:</span>
-                          <span className="ml-2 text-gray-700">{aiAnalysis.visualInspection.texture}</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Moisture:</span>
-                          <span className="ml-2 text-gray-700">{aiAnalysis.moistureContent}%</span>
-                        </div>
-                        <div>
-                          <span className="font-medium">Purity:</span>
-                          <span className="ml-2 text-gray-700">{aiAnalysis.purityLevel}%</span>
-                        </div>
-                      </div>
-
-                      {aiAnalysis.defectDetection.length > 0 && (
-                        <div className="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                          <h4 className="font-medium text-yellow-800 mb-2">⚠️ Defects Detected</h4>
-                          {aiAnalysis.defectDetection.map((defect, index) => (
-                            <div key={index} className="text-sm text-yellow-700">
-                              {defect.defectType} - {defect.severity} ({defect.affectedPercentage}% affected)
+                      {imagePreviews.length > 0 && (
+                        <div className="grid grid-cols-4 gap-6">
+                          {imagePreviews.map((p, idx) => (
+                            <div key={idx} className="aspect-square rounded-[24px] overflow-hidden border border-white/10">
+                              <img src={p} className="w-full h-full object-cover" alt="sample" />
                             </div>
                           ))}
                         </div>
                       )}
-
-                      <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                        <h4 className="font-medium text-green-800 mb-2">💡 AI Recommendations</h4>
-                        <div className="text-sm text-green-700 space-y-1">
-                          <div>Suggested Price: ₹{aiAnalysis.marketRecommendation.suggestedPrice}/{formData.collectedUnit}</div>
-                          <div>Market Demand: {aiAnalysis.marketRecommendation.marketDemand}</div>
-                          <div>Organic Compliant: {aiAnalysis.organicCompliance ? '✅ Yes' : '❌ No'}</div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-6">
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Color Maturation (0-2)</label>
+                          <input type="number" name="color" value={qualityInputs.color} onChange={handleQualityInputChange} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white" />
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Size Uniformity (0-2)</label>
+                          <input type="number" name="size" value={qualityInputs.size} onChange={handleQualityInputChange} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white" />
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">External Texture (0-2)</label>
+                          <input type="number" name="texture" value={qualityInputs.texture} onChange={handleQualityInputChange} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white" />
+                        </div>
+                      </div>
+                      <div className="space-y-6">
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Moisture Saturation (%)</label>
+                          <input type="number" name="moisture" value={qualityInputs.moisture} onChange={handleQualityInputChange} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white" />
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Purity Threshold (%)</label>
+                          <input type="number" name="purity" value={qualityInputs.purity} onChange={handleQualityInputChange} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-6 text-sm font-bold text-white" />
+                        </div>
+                        <div className="pt-4">
+                          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center gap-4">
+                            <Info className="w-5 h-5 text-emerald-400" />
+                            <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-tight italic">Enter physical metrics measured by the laboratory node.</p>
+                          </div>
                         </div>
                       </div>
                     </div>
                   )}
-                </div>
-              </div>
 
-              {/* Storage Details */}
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-                  <Shield className="w-6 h-6 mr-2 text-indigo-600" />
-                  Storage Information
-                </h2>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Storage Facility Name
-                    </label>
+                  <button
+                    type="button"
+                    onClick={triggerAIAnalysis}
+                    disabled={analyzing}
+                    className="w-full py-6 bg-white text-slate-900 rounded-[32px] flex items-center justify-center gap-4 hover:bg-emerald-400 transition-all active:scale-95 disabled:opacity-50"
+                  >
+                    {analyzing ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      <Zap className="w-6 h-6" />
+                    )}
+                    <span className="text-[12px] font-bold uppercase tracking-[0.2em]">{verificationMode === 'ai' ? 'Invoke Neural Vision' : 'Execute Dataset Match'}</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="bg-white/5 border border-white/10 rounded-[40px] p-10 space-y-12 animate-in zoom-in duration-700">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 border-b border-white/10 pb-10">
+                    <div className="flex items-center gap-8">
+                      <div className="w-24 h-24 bg-emerald-500 rounded-[32px] flex items-center justify-center text-slate-900 font-bold text-4xl tracking-tighter shadow-2xl shadow-emerald-500/20">
+                        {aiAnalysis.overallGrade}
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-[0.3em]">Certified Quality Tier</p>
+                        <h4 className="text-3xl font-bold text-white tracking-tighter capitalize">
+                          {aiAnalysis.overallGrade === 'Premium' ? 'Neural Elite Reserve' : `Verified Grade ${aiAnalysis.overallGrade}`}
+                        </h4>
+                      </div>
+                    </div>
+                    <div className="text-left md:text-right space-y-1">
+                      <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Neural Confidence Index</p>
+                      <p className="text-5xl font-bold text-white tracking-tighter">{aiAnalysis.qualityScore}<span className="text-xl text-emerald-500 font-bold ml-1">%</span></p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+                    {[
+                      { label: 'Optical Clarity', val: aiAnalysis.visualInspection.color, icon: Sparkles },
+                      { label: 'Matrix Texture', val: aiAnalysis.visualInspection.texture, icon: Package },
+                      { label: 'Moisture Lock', val: `${aiAnalysis.moistureContent}%`, icon: Droplets },
+                      { label: 'Refinement Tier', val: `${aiAnalysis.purityLevel}%`, icon: Shield }
+                    ].map((s, i) => (
+                      <div key={i} className="space-y-2 group/metric">
+                        <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest flex items-center gap-2 group-hover/metric:text-emerald-400 transition-colors">
+                          <s.icon className="w-3.5 h-3.5" /> {s.label}
+                        </p>
+                        <p className="text-sm font-bold text-white uppercase tracking-tight">{s.val}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="pt-6 flex flex-col sm:flex-row gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setAiAnalysis(null)}
+                      className="px-10 py-5 bg-white/5 border border-white/10 rounded-[24px] text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all shadow-sm"
+                    >
+                      Reset Model Calibration
+                    </button>
+                    <div className="flex-1 px-8 py-5 bg-emerald-500/10 border border-emerald-500/20 rounded-[24px] flex items-center gap-4">
+                      <CheckCircle className="w-5 h-5 text-emerald-400" />
+                      <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-widest">Grade Finalization Protocol Ready</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Logistics Registry */}
+          <div className="bg-white rounded-[56px] p-12 border border-slate-100 shadow-sm space-y-12">
+            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] flex items-center gap-4">
+              <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+              Intake & Storage Topology
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+              <div className="space-y-8">
+                <label className="block space-y-3">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Aggregate Volume Intake</span>
+                  <div className="relative group/input">
+                    <Package className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within/input:text-emerald-500 transition-colors" />
                     <input
-                      type="text"
-                      name="storageDetails.facilityName"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      value={formData.storageDetails.facilityName}
+                      type="number"
+                      name="collectedQuantity"
+                      value={formData.collectedQuantity}
                       onChange={handleInputChange}
-                      placeholder="e.g., ABC Warehouse"
+                      className="w-full bg-slate-50 border border-slate-100 rounded-[28px] py-6 pl-16 pr-24 text-base font-bold text-slate-900 outline-none focus:bg-white focus:border-emerald-500/20 focus:ring-8 focus:ring-emerald-500/5 transition-all"
+                    />
+                    <span className="absolute right-8 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{formData.collectedUnit}</span>
+                  </div>
+                </label>
+
+                <label className="block space-y-3">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Market Settlement Rate</span>
+                  <div className="relative group/input">
+                    <DollarSign className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within/input:text-emerald-500 transition-colors" />
+                    <input
+                      type="number"
+                      name="purchasePrice"
+                      value={formData.purchasePrice}
+                      onChange={handleInputChange}
+                      placeholder="0.00"
+                      className="w-full bg-slate-50 border border-slate-100 rounded-[28px] py-6 pl-16 pr-10 text-base font-bold text-slate-900 outline-none focus:bg-white focus:border-emerald-500/20 focus:ring-8 focus:ring-emerald-500/5 transition-all"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Storage Type
-                    </label>
+                </label>
+              </div>
+
+              <div className="space-y-8">
+                <label className="block space-y-3">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Authorized Storage Node</span>
+                  <div className="relative group/input">
+                    <Warehouse className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within/input:text-emerald-500 transition-colors" />
                     <select
-                      name="storageDetails.storageType"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      value={formData.storageDetails.storageType}
+                      name="storageDetails.facilityName"
+                      value={formData.storageDetails.facilityName}
                       onChange={handleInputChange}
+                      className="w-full bg-slate-50 border border-slate-100 rounded-[28px] py-6 pl-16 pr-12 text-sm font-bold text-slate-900 outline-none focus:bg-white focus:border-emerald-500/20 focus:ring-8 focus:ring-emerald-500/5 transition-all appearance-none"
                     >
-                      <option value="warehouse">Warehouse</option>
-                      <option value="cold_storage">Cold Storage</option>
-                      <option value="silo">Silo</option>
-                      <option value="open_yard">Open Yard</option>
+                      <option>Regional Hub Bhubaneswar</option>
+                      <option>Warehouse Delta-4 Pune</option>
+                      <option>Silo Alpha-1 Nashik</option>
                     </select>
+                    <ChevronRight className="absolute right-8 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Temperature (°C)
-                      </label>
+                </label>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <label className="block space-y-3">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Thermal Metric</span>
+                    <div className="relative group/input">
+                      <Thermometer className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                       <input
                         type="number"
                         name="storageDetails.storageConditions.temperature"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                         value={formData.storageDetails.storageConditions.temperature}
                         onChange={handleInputChange}
+                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 pl-14 pr-4 text-xs font-bold text-slate-900 outline-none focus:ring-8 focus:ring-blue-500/5 transition-all"
                       />
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Humidity (%)
-                      </label>
+                  </label>
+                  <label className="block space-y-3">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] ml-1">Humidity Index</span>
+                    <div className="relative group/input">
+                      <Droplets className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
                       <input
                         type="number"
                         name="storageDetails.storageConditions.humidity"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                         value={formData.storageDetails.storageConditions.humidity}
                         onChange={handleInputChange}
+                        className="w-full bg-slate-50 border border-slate-100 rounded-2xl py-5 pl-14 pr-4 text-xs font-bold text-slate-900 outline-none focus:ring-8 focus:ring-blue-500/5 transition-all"
                       />
                     </div>
-                  </div>
+                  </label>
                 </div>
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Notes */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
-              Additional Notes
+        {/* Protocol Control Sidebar */}
+        <div className="lg:col-span-4 space-y-8">
+          <div className="bg-white rounded-[56px] border border-slate-100 shadow-xl shadow-slate-200/50 p-12 space-y-10 sticky top-12">
+            <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] flex items-center gap-4">
+              <Clock className="w-4 h-4" />
+              Protocol Lifecycle
             </h2>
-            <textarea
-              name="notes"
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-              value={formData.notes}
-              onChange={handleInputChange}
-              placeholder="Any additional notes about the collection, quality, or special handling requirements..."
-            />
-          </div>
 
-          {/* Error Display */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center">
-                <AlertCircle className="w-5 h-5 text-red-500 mr-3" />
-                <span className="text-red-700">{error}</span>
+            <div className="space-y-8 relative before:absolute before:left-[15px] before:top-4 before:bottom-4 before:w-[2px] before:bg-slate-50">
+              <div className="flex gap-8 group/step relative z-10">
+                <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20 group-hover/step:scale-110 transition-transform"><CheckCircle className="w-4 h-4" /></div>
+                <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-slate-900 uppercase tracking-widest">Origin Discovery Verified</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Decentralized Asset ID Confirmed</p>
+                </div>
+              </div>
+              <div className="flex gap-8 group/step relative z-10">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500 group-hover/step:scale-110 ${aiAnalysis ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-white border-slate-100 text-slate-300'}`}>
+                  {aiAnalysis ? <CheckCircle className="w-4 h-4" /> : <Brain className="w-4 h-4" />}
+                </div>
+                <div className="space-y-1">
+                  <p className={`text-[11px] font-bold uppercase tracking-widest transition-colors ${aiAnalysis ? 'text-slate-900' : 'text-slate-300'}`}>Neural Assessment Sync</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Gemini Laboratory Model Analysis</p>
+                </div>
+              </div>
+              <div className="flex gap-8 group/step relative z-10">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500 group-hover/step:scale-110 ${loading ? 'bg-emerald-500 border-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-white border-slate-100 text-slate-300'}`}>
+                  <Zap className="w-4 h-4" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[11px] font-bold text-slate-300 uppercase tracking-widest">Supply Ledger Commitment</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Pending Regional Node Broadcast</p>
+                </div>
               </div>
             </div>
-          )}
 
-          {/* Submit Button */}
-          <div className="flex justify-end space-x-4">
-            <button
-              type="button"
-              onClick={() => navigate('/aggregator/scan-qr')}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || analyzing || !aiAnalysis}
-              className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 font-semibold flex items-center"
-            >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <Package className="w-5 h-5 mr-2" />
-                  Collect Crop & Store on Blockchain
-                </>
+            <div className="pt-10 border-t border-slate-50 space-y-8">
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] text-center">Protocol Settlement Sum</p>
+                <p className="text-4xl font-bold text-slate-900 tracking-tighter text-center">₹{parseFloat(formData.purchasePrice || 0).toLocaleString()}</p>
+              </div>
+
+              {error && (
+                <div className="p-5 bg-red-50 border border-red-100 rounded-[24px] flex items-center gap-4 text-red-600 text-[10px] font-bold uppercase tracking-widest leading-tight">
+                  <AlertCircle className="w-5 h-5 shrink-0" />
+                  {error}
+                </div>
               )}
-            </button>
+
+              <button
+                type="submit"
+                disabled={loading || !aiAnalysis}
+                className="w-full bg-slate-900 hover:bg-slate-800 text-white py-8 rounded-[32px] text-[10px] font-bold uppercase tracking-[0.3em] transition-all active:scale-95 shadow-2xl shadow-slate-900/10 flex items-center justify-center gap-4 disabled:opacity-50 group/submit"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin text-emerald-500" />
+                    Synchronizing...
+                  </>
+                ) : (
+                  <>
+                    Finalize Intake Signal <ChevronRight className="w-4 h-4 text-emerald-500 group-submit:translate-x-1 transition-transform" />
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   );
 };

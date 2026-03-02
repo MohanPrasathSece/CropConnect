@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
-import locationService from '../../utils/locationService';
+import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowRight, AlertCircle, ShieldCheck, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -10,342 +10,230 @@ const Register = () => {
     email: '',
     phone: '',
     password: '',
-    confirmPassword: '',
-    role: 'farmer'
+    confirmPassword: ''
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const { register } = useAuth();
+  const { register, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
     if (error) setError('');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validate required fields
-    if (!formData.name.trim()) {
-      setError('Name is required');
-      return;
-    }
-    if (!formData.email.trim()) {
-      setError('Email is required');
-      return;
-    }
-    if (!formData.phone.trim()) {
-      setError('Phone number is required');
-      return;
-    }
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
-      return;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-    
+    if (!formData.name.trim()) return setError('Please enter your full name.');
+    if (!formData.email.trim()) return setError('Please enter your email address.');
+    if (!formData.phone.trim()) return setError('Please enter your phone number.');
+    if (formData.password.length < 6) return setError('Password must be at least 6 characters long.');
+    if (formData.password !== formData.confirmPassword) return setError('Passwords do not match.');
+
     setLoading(true);
     setError('');
-    
+
     const { confirmPassword, ...registerData } = formData;
-
-    // If farmer, attempt to auto-detect location one-time during registration
-    if (registerData.role === 'farmer') {
-      try {
-        const loc = await locationService.getLocationWithAddress();
-        registerData.address = {
-          village: loc.village,
-          district: loc.district,
-          state: loc.state,
-          pincode: loc.pincode,
-          coordinates: loc.coordinates,
-          fullAddress: loc.fullAddress,
-          isLocationDetected: true
-        };
-      } catch (locErr) {
-        // Proceed without blocking registration if location detection fails
-        console.warn('Location detection during registration failed:', locErr);
-      }
-    }
-
-    // Debug: Log the data being sent
-    console.log('Registration data:', registerData);
+    registerData.role = null;
+    localStorage.setItem('agritrack_onboarding', 'true');
 
     const result = await register(registerData);
-    
     if (result.success) {
-      // Redirect immediately to dashboard - location detection will be handled by App.js
-      navigate('/dashboard');
+      navigate('/select-role');
     } else {
       setError(result.error || 'Registration failed. Please try again.');
     }
-    
     setLoading(false);
   };
 
-  const roleOptions = [
-    { value: 'farmer', label: 'Farmer', icon: '👨‍🌾' },
-    { value: 'aggregator', label: 'Aggregator', icon: '🏭' },
-    { value: 'retailer', label: 'Retailer', icon: '🏪' },
-    { value: 'consumer', label: 'Consumer', icon: '🛒' }
-  ];
+  const inputClass = "w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition-all";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center py-6 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-xl w-full">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <div className="flex justify-center mb-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-2xl">🌾</span>
+    <div style={{ fontFamily: "'Poppins', sans-serif" }} className="min-h-screen flex bg-white">
+
+      {/* Left: Branding Panel */}
+      <div className="hidden lg:flex lg:w-[42%] relative overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1592982537447-7440770cbfc9?auto=format&fit=crop&q=80&w=2000")' }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/90 via-emerald-800/70 to-emerald-900/80" />
+
+        <div className="relative z-10 flex flex-col justify-between h-full p-14">
+          <Link to="/" className="flex items-center gap-3 w-fit">
+            <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+            </div>
+            <span className="text-white font-semibold text-base">CropConnect</span>
+          </Link>
+
+          <div className="space-y-6">
+            <h2 className="text-4xl font-bold text-white leading-snug">
+              Join thousands of<br />
+              <span className="text-emerald-300">farmers & traders.</span>
+            </h2>
+            <p className="text-emerald-100/70 text-base leading-relaxed max-w-xs">
+              List your crops, get AI quality grading, and connect directly with buyers — all for free.
+            </p>
+
+            <div className="space-y-4 pt-4">
+              {[
+                'Free to register, no hidden charges',
+                'Get fair market price for your crops',
+                'AI-powered quality verification',
+              ].map((item) => (
+                <div key={item} className="flex items-center gap-3">
+                  <div className="w-5 h-5 rounded-full bg-emerald-400/20 flex items-center justify-center shrink-0">
+                    <div className="w-2 h-2 rounded-full bg-emerald-300" />
+                  </div>
+                  <p className="text-emerald-100/80 text-sm">{item}</p>
+                </div>
+              ))}
             </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-2">
-            Join CropConnect
-          </h1>
-          <p className="text-gray-600 text-sm">
-            Create your account and start your agricultural journey
-          </p>
+
+          <p className="text-emerald-200/40 text-xs">© 2026 CropConnect. All rights reserved.</p>
         </div>
+      </div>
 
-        {/* Registration Form */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-          {/* Success Message */}
-          {success && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center">
-              <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
-              <span className="text-green-800 text-sm font-medium">{success}</span>
+      {/* Right: Form */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-10 overflow-y-auto bg-slate-50">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md py-10"
+        >
+          {/* Mobile logo */}
+          <div className="flex lg:hidden items-center gap-2 mb-8">
+            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
+              <ShieldCheck className="w-4 h-4 text-white" />
             </div>
-          )}
+            <span className="text-slate-800 font-semibold">CropConnect</span>
+          </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center">
-              <AlertCircle className="w-4 h-4 text-red-600 mr-2" />
-              <span className="text-red-800 text-sm font-medium">{error}</span>
-            </div>
-          )}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-slate-900 mb-1.5">Create your account</h1>
+            <p className="text-slate-500 text-sm">It's free and only takes a minute.</p>
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Name, Email and Phone Row */}
+          {/* Google sign up */}
+          <button
+            type="button"
+            onClick={() => signInWithGoogle()}
+            className="w-full flex items-center justify-center gap-3 py-3 px-5 border border-slate-200 rounded-xl hover:bg-white transition-all text-slate-700 text-sm font-medium mb-6 bg-white shadow-sm"
+          >
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="" />
+            Sign up with Google
+          </button>
+
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-slate-400 text-xs">or fill in your details</span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
+
+          {/* Error */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 mb-5"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span className="text-xs font-medium">{error}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Name + Email */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="name" className="block text-xs font-semibold text-gray-700 mb-1">
-                  Full Name
-                </label>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Full name</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    id="name"
-                    name="name"
-                    type="text"
-                    required
-                    className="block w-full pl-9 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500 text-sm"
-                    placeholder="Your name"
-                    value={formData.name}
-                    onChange={handleChange}
-                  />
+                  <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input name="name" type="text" required value={formData.name} onChange={handleChange}
+                    placeholder="Your full name" className={inputClass} />
                 </div>
               </div>
-
-              <div>
-                <label htmlFor="email" className="block text-xs font-semibold text-gray-700 mb-1">
-                  Email
-                </label>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Email address</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    className="block w-full pl-9 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500 text-sm"
-                    placeholder="your@email.com"
-                    value={formData.email}
-                    onChange={handleChange}
-                  />
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input name="email" type="email" required value={formData.email} onChange={handleChange}
+                    placeholder="you@example.com" className={inputClass} />
                 </div>
               </div>
             </div>
 
-            {/* Phone Field */}
-            <div>
-              <label htmlFor="phone" className="block text-xs font-semibold text-gray-700 mb-1">
-                Phone Number
-              </label>
+            {/* Phone */}
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Phone number</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Phone className="h-4 w-4 text-gray-400" />
-                </div>
-                <input
-                  id="phone"
-                  name="phone"
-                  type="tel"
-                  required
-                  className="block w-full pl-9 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500 text-sm"
-                  placeholder="+91 9876543210"
-                  value={formData.phone}
-                  onChange={handleChange}
-                />
+                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input name="phone" type="tel" required value={formData.phone} onChange={handleChange}
+                  placeholder="+91 98765 43210" className={inputClass} />
               </div>
             </div>
 
-            {/* Role Selection */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Select Your Role
-              </label>
-              <div className="grid grid-cols-4 gap-3">
-                {roleOptions.map((role) => (
-                  <label
-                    key={role.value}
-                    className={`relative flex flex-col p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                      formData.role === role.value
-                        ? 'border-green-500 bg-green-50'
-                        : 'border-gray-200 hover:border-green-300 hover:bg-gray-50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="role"
-                      value={role.value}
-                      checked={formData.role === role.value}
-                      onChange={handleChange}
-                      className="sr-only"
-                    />
-                    <div className="flex items-center justify-center mb-2">
-                      <span className="text-lg">{role.icon}</span>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-medium text-gray-900 text-xs">{role.label}</div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            {/* Password Row */}
+            {/* Password + Confirm */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="password" className="block text-xs font-semibold text-gray-700 mb-1">
-                  Password
-                </label>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Password</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    className="block w-full pl-9 pr-9 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500 text-sm"
-                    placeholder="Password"
-                    value={formData.password}
-                    onChange={handleChange}
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-                    ) : (
-                      <Eye className="h-4 w-4 text-gray-400 hover:text-gray-600" />
-                    )}
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input name="password" type={showPassword ? 'text' : 'password'} required
+                    value={formData.password} onChange={handleChange}
+                    placeholder="Min. 6 characters"
+                    className={`${inputClass} pr-10`} />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
-
-              <div>
-                <label htmlFor="confirmPassword" className="block text-xs font-semibold text-gray-700 mb-1">
-                  Confirm Password
-                </label>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">Confirm password</label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type="password"
-                    required
-                    className="block w-full pl-9 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500 text-sm"
-                    placeholder="Confirm"
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                  />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input name="confirmPassword" type="password" required
+                    value={formData.confirmPassword} onChange={handleChange}
+                    placeholder="Re-enter password" className={inputClass} />
                 </div>
               </div>
             </div>
 
-            {/* Terms Checkbox */}
-            <div className="flex items-start">
-              <div className="flex items-center h-5">
-                <input
-                  id="terms"
-                  name="terms"
-                  type="checkbox"
-                  required
-                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                />
-              </div>
-              <div className="ml-2 text-xs">
-                <label htmlFor="terms" className="text-gray-600">
-                  I agree to the{' '}
-                  <Link to="/terms" className="text-green-600 hover:text-green-500 font-medium">
-                    Terms
-                  </Link>{' '}
-                  and{' '}
-                  <Link to="/privacy" className="text-green-600 hover:text-green-500 font-medium">
-                    Privacy Policy
-                  </Link>
-                </label>
-              </div>
+            {/* Terms */}
+            <div className="flex items-start gap-3">
+              <input type="checkbox" required id="terms" className="mt-0.5 w-4 h-4 accent-emerald-600 cursor-pointer" />
+              <label htmlFor="terms" className="text-xs text-slate-500 leading-relaxed cursor-pointer">
+                I agree to CropConnect's{' '}
+                <Link to="/terms" className="text-emerald-600 hover:underline font-medium">Terms of Service</Link>
+                {' '}and{' '}
+                <Link to="/privacy" className="text-emerald-600 hover:underline font-medium">Privacy Policy</Link>.
+              </label>
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center items-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-600/20 transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
             >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Creating Account...
-                </>
-              ) : (
-                <>
-                  Create Account
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </>
-              )}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Create account <ArrowRight className="w-4 h-4" /></>}
             </button>
           </form>
 
-          {/* Login Link */}
-          <div className="mt-4 text-center">
-            <span className="text-xs text-gray-500">Already have an account? </span>
-            <Link to="/login" className="text-xs text-green-600 hover:text-green-500 font-medium">
+          <p className="text-center text-sm text-slate-500 mt-6">
+            Already have an account?{' '}
+            <Link to="/login" className="text-emerald-600 font-semibold hover:text-emerald-700">
               Sign in
             </Link>
-          </div>
-        </div>
+          </p>
+        </motion.div>
       </div>
     </div>
   );

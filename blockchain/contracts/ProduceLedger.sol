@@ -1,9 +1,29 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Counters.sol";
+
+// Minimal Counters implementation since OpenZeppelin v5 removed it
+library CountersWrapper {
+    struct Counter {
+        uint256 _value;
+    }
+
+    function current(Counter storage counter) internal view returns (uint256) {
+        return counter._value;
+    }
+
+    function increment(Counter storage counter) internal {
+        unchecked {
+            counter._value += 1;
+        }
+    }
+
+    function reset(Counter storage counter) internal {
+        counter._value = 0;
+    }
+}
 
 /**
  * @title ProduceLedger
@@ -11,15 +31,16 @@ import "@openzeppelin/contracts/utils/Counters.sol";
  * @notice This contract maintains immutable records of crop production and supply chain
  */
 contract ProduceLedger is AccessControl, ReentrancyGuard {
-    using Counters for Counters.Counter;
+    using CountersWrapper for CountersWrapper.Counter;
 
     // Role definitions
     bytes32 public constant FARMER_ROLE = keccak256("FARMER_ROLE");
     bytes32 public constant AGGREGATOR_ROLE = keccak256("AGGREGATOR_ROLE");
+    bytes32 public constant RETAILER_ROLE = keccak256("RETAILER_ROLE");
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
 
     // Counter for produce IDs
-    Counters.Counter private _produceIdCounter;
+    CountersWrapper.Counter private _produceIdCounter;
 
     // Enums for produce status and quality
     enum ProduceStatus { Harvested, InTransit, Delivered, Sold }
@@ -100,14 +121,6 @@ contract ProduceLedger is AccessControl, ReentrancyGuard {
 
     /**
      * @dev Register new produce on the blockchain
-     * @param _cropType Type of crop (e.g., "Paddy", "Maize")
-     * @param _quantity Quantity in kg
-     * @param _grade Quality grade of the produce
-     * @param _expectedPrice Expected price per kg in wei
-     * @param _location Location of harvest
-     * @param _imageHash IPFS hash of crop image
-     * @param _isOrganic Whether the produce is organic
-     * @param _certifications Array of certification strings
      */
     function registerProduce(
         string memory _cropType,
@@ -121,26 +134,26 @@ contract ProduceLedger is AccessControl, ReentrancyGuard {
     ) external onlyRole(FARMER_ROLE) nonReentrant returns (uint256) {
         require(bytes(_cropType).length > 0, "Crop type cannot be empty");
         require(_quantity > 0, "Quantity must be greater than 0");
-        require(_expectedPrice > 0, "Expected price must be greater than 0");
 
         _produceIdCounter.increment();
         uint256 newProduceId = _produceIdCounter.current();
 
-        Produce storage newProduce = produces[newProduceId];
-        newProduce.id = newProduceId;
-        newProduce.farmer = msg.sender;
-        newProduce.cropType = _cropType;
-        newProduce.quantity = _quantity;
-        newProduce.grade = _grade;
-        newProduce.harvestDate = block.timestamp;
-        newProduce.expectedPrice = _expectedPrice;
-        newProduce.status = ProduceStatus.Harvested;
-        newProduce.location = _location;
-        newProduce.imageHash = _imageHash;
-        newProduce.isOrganic = _isOrganic;
-        newProduce.certifications = _certifications;
-        newProduce.createdAt = block.timestamp;
-        newProduce.updatedAt = block.timestamp;
+        produces[newProduceId] = Produce({
+            id: newProduceId,
+            farmer: msg.sender,
+            cropType: _cropType,
+            quantity: _quantity,
+            grade: _grade,
+            harvestDate: block.timestamp,
+            expectedPrice: _expectedPrice,
+            status: ProduceStatus.Harvested,
+            location: _location,
+            imageHash: _imageHash,
+            isOrganic: _isOrganic,
+            certifications: _certifications,
+            createdAt: block.timestamp,
+            updatedAt: block.timestamp
+        });
 
         // Update mappings
         farmerProduces[msg.sender].push(newProduceId);
@@ -153,19 +166,19 @@ contract ProduceLedger is AccessControl, ReentrancyGuard {
 
     /**
      * @dev Update produce status (only by authorized roles)
-     * @param _produceId ID of the produce
-     * @param _newStatus New status to set
      */
     function updateProduceStatus(
         uint256 _produceId,
         ProduceStatus _newStatus
     ) external {
-        require(_produceId <= _produceIdCounter.current(), "Invalid produce ID");
+        uint256 currentCount = _produceIdCounter.current();
+        require(_produceId <= currentCount && _produceId > 0, "Invalid produce ID");
         
         Produce storage produce = produces[_produceId];
         require(
             msg.sender == produce.farmer || 
             hasRole(AGGREGATOR_ROLE, msg.sender) || 
+            hasRole(RETAILER_ROLE, msg.sender) ||
             hasRole(ADMIN_ROLE, msg.sender),
             "Unauthorized to update status"
         );
@@ -178,150 +191,54 @@ contract ProduceLedger is AccessControl, ReentrancyGuard {
     }
 
     /**
-     * @dev Assign transport to produce (only aggregators)
-     * @param _produceId ID of the produce
-     * @param _transportDetails Details about transport
-     * @param _route Transport route
-     * @param _temperature Temperature for cold chain
-     */
-    function assignTransport(
-        uint256 _produceId,
-        string memory _transportDetails,
-        string memory _route,
-        uint256 _temperature
-    ) external onlyRole(AGGREGATOR_ROLE) nonReentrant {
-        require(_produceId <= _produceIdCounter.current(), "Invalid produce ID");
-        require(produces[_produceId].status == ProduceStatus.Harvested, "Produce not available for transport");
-
-        Transport storage transport = transports[_produceId];
-        transport.produceId = _produceId;
-        transport.aggregator = msg.sender;
-        transport.transportDetails = _transportDetails;
-        transport.pickupDate = block.timestamp;
-        transport.route = _route;
-        transport.temperature = _temperature;
-        transport.isDelivered = false;
-
-        // Update produce status
-        produces[_produceId].status = ProduceStatus.InTransit;
-        produces[_produceId].updatedAt = block.timestamp;
-
-        emit TransportAssigned(_produceId, msg.sender, _transportDetails);
-    }
-
-    /**
-     * @dev Mark transport as delivered
-     * @param _produceId ID of the produce
-     */
-    function markDelivered(uint256 _produceId) external onlyRole(AGGREGATOR_ROLE) {
-        require(_produceId <= _produceIdCounter.current(), "Invalid produce ID");
-        require(transports[_produceId].aggregator == msg.sender, "Not authorized for this transport");
-        require(!transports[_produceId].isDelivered, "Already marked as delivered");
-
-        transports[_produceId].isDelivered = true;
-        transports[_produceId].deliveryDate = block.timestamp;
-        
-        produces[_produceId].status = ProduceStatus.Delivered;
-        produces[_produceId].updatedAt = block.timestamp;
-    }
-
-    /**
-     * @dev Update quality grade (only by authorized roles)
-     * @param _produceId ID of the produce
-     * @param _newGrade New quality grade
+     * @dev Update quality grade (only by Aggregators or Admins)
      */
     function updateQualityGrade(
         uint256 _produceId,
         QualityGrade _newGrade
     ) external {
-        require(_produceId <= _produceIdCounter.current(), "Invalid produce ID");
+        uint256 currentCount = _produceIdCounter.current();
+        require(_produceId <= currentCount && _produceId > 0, "Invalid produce ID");
         require(
             hasRole(AGGREGATOR_ROLE, msg.sender) || 
             hasRole(ADMIN_ROLE, msg.sender),
-            "Unauthorized to update grade"
+            "Only aggregators or admins can update grade"
         );
 
-        QualityGrade oldGrade = produces[_produceId].grade;
-        produces[_produceId].grade = _newGrade;
-        produces[_produceId].updatedAt = block.timestamp;
+        Produce storage produce = produces[_produceId];
+        QualityGrade oldGrade = produce.grade;
+        produce.grade = _newGrade;
+        produce.updatedAt = block.timestamp;
 
         emit QualityGradeUpdated(_produceId, oldGrade, _newGrade, msg.sender);
     }
 
     /**
      * @dev Get produce details by ID
-     * @param _produceId ID of the produce
-     * @return Produce struct
      */
     function getProduce(uint256 _produceId) external view returns (Produce memory) {
-        require(_produceId <= _produceIdCounter.current(), "Invalid produce ID");
         return produces[_produceId];
     }
-
-    /**
-     * @dev Get transport details by produce ID
-     * @param _produceId ID of the produce
-     * @return Transport struct
-     */
-    function getTransport(uint256 _produceId) external view returns (Transport memory) {
-        return transports[_produceId];
-    }
-
-    /**
-     * @dev Get all produce IDs for a farmer
-     * @param _farmer Address of the farmer
-     * @return Array of produce IDs
-     */
-    function getFarmerProduces(address _farmer) external view returns (uint256[] memory) {
-        return farmerProduces[_farmer];
-    }
-
-    /**
-     * @dev Get all produce IDs for a crop type
-     * @param _cropType Type of crop
-     * @return Array of produce IDs
-     */
-    function getCropTypeProduces(string memory _cropType) external view returns (uint256[] memory) {
-        return cropTypeProduces[_cropType];
-    }
-
+    
     /**
      * @dev Get current produce counter
-     * @return Current counter value
      */
     function getCurrentProduceId() external view returns (uint256) {
         return _produceIdCounter.current();
     }
 
     /**
-     * @dev Grant farmer role to an address (only admin)
-     * @param _farmer Address to grant farmer role
+     * @dev Role management
      */
-    function grantFarmerRole(address _farmer) external onlyRole(ADMIN_ROLE) {
-        _grantRole(FARMER_ROLE, _farmer);
+    function grantFarmerRole(address _account) external onlyRole(ADMIN_ROLE) {
+        _grantRole(FARMER_ROLE, _account);
     }
 
-    /**
-     * @dev Grant aggregator role to an address (only admin)
-     * @param _aggregator Address to grant aggregator role
-     */
-    function grantAggregatorRole(address _aggregator) external onlyRole(ADMIN_ROLE) {
-        _grantRole(AGGREGATOR_ROLE, _aggregator);
+    function grantAggregatorRole(address _account) external onlyRole(ADMIN_ROLE) {
+        _grantRole(AGGREGATOR_ROLE, _account);
     }
 
-    /**
-     * @dev Revoke farmer role from an address (only admin)
-     * @param _farmer Address to revoke farmer role
-     */
-    function revokeFarmerRole(address _farmer) external onlyRole(ADMIN_ROLE) {
-        _revokeRole(FARMER_ROLE, _farmer);
-    }
-
-    /**
-     * @dev Revoke aggregator role from an address (only admin)
-     * @param _aggregator Address to revoke aggregator role
-     */
-    function revokeAggregatorRole(address _aggregator) external onlyRole(ADMIN_ROLE) {
-        _revokeRole(AGGREGATOR_ROLE, _aggregator);
+    function grantRetailerRole(address _account) external onlyRole(ADMIN_ROLE) {
+        _grantRole(RETAILER_ROLE, _account);
     }
 }

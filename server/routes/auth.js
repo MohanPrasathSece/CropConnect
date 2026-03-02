@@ -1,80 +1,127 @@
 const express = require('express');
-const User = require('../models/User');
-
+const supabase = require('../config/supabase');
 const router = express.Router();
 
 // @route   POST /api/v1/auth/register
-// @desc    Register a new user (simplified)
+// @desc    Register a new user and bypass email confirmation
 // @access  Public
 router.post('/register', async (req, res) => {
   try {
     const { name, email, password, role, phone, address } = req.body;
+    console.log('Registration attempt:', { name, email, role, phone });
 
     // Basic validation
     if (!name || !email || !password || !role || !phone) {
+      console.warn('Registration failed validation:', {
+        hasName: !!name,
+        hasEmail: !!email,
+        hasPassword: !!password,
+        hasRole: !!role,
+        hasPhone: !!phone
+      });
       return res.status(400).json({
         success: false,
         message: 'All fields are required'
       });
     }
 
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    // Check if user already exists in profiles table
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id, email')
+      .eq('email', email)
+      .single();
+
+    if (existingProfile) {
       return res.status(400).json({
         success: false,
-        message: 'User already exists with this email'
+        message: 'An account with this email already exists. Please login instead.'
       });
     }
 
-    // Create user (password will be stored as plain text for simplicity)
-    const user = new User({
-      name,
-      email,
-      password, // Plain text password
-      role,
-      phone,
-      // If address is provided from client (e.g., auto-detected during registration), save it
-      ...(address ? { address: {
-        village: address.village || '',
-        district: address.district || '',
-        state: address.state || '',
-        pincode: address.pincode || '',
-        coordinates: address.coordinates || undefined,
-        fullAddress: address.fullAddress || '',
-        isLocationDetected: address.isLocationDetected === true
-      } } : {})
+    // 1. Create user in Supabase Auth using Admin API to bypass email confirmation
+    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+      email: email,
+      password: password,
+      email_confirm: true, // This bypasses email confirmation
+      user_metadata: { name, role }
     });
 
-    await user.save();
+    if (authError) {
+      // Check if it's a duplicate email error
+      if (authError.message.includes('already registered') || authError.message.includes('already exists')) {
+        return res.status(400).json({
+          success: false,
+          message: 'An account with this email already exists. Please login instead.'
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: authError.message
+      });
+    }
 
-    // Return user without password
-    const userResponse = user.toObject();
-    delete userResponse.password;
+    // 2. Create the user profile in the public 'profiles' table
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .insert([{
+        id: authUser.user.id,
+        name,
+        email,
+        phone,
+        role,
+        address,
+        created_at: new Date()
+      }])
+      .select()
+      .single();
+
+    if (profileError) {
+      // Cleanup: if profile creation fails, delete the auth user
+      await supabase.auth.admin.deleteUser(authUser.user.id);
+
+      // Check if it's a duplicate key error
+      if (profileError.code === '23505') {
+        return res.status(400).json({
+          success: false,
+          message: 'An account with this email already exists. Please login instead.'
+        });
+      }
+
+      throw profileError;
+    }
+
+    // 3. Automatically log the user in to get a session
+    const { createClient } = require('@supabase/supabase-js');
+    const tempClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY);
+    const { data: loginData } = await tempClient.auth.signInWithPassword({
+      email,
+      password
+    });
 
     res.status(201).json({
       success: true,
-      message: 'User registered successfully',
-      user: userResponse
+      message: 'Account created successfully.',
+      session: loginData.session,
+      user: profile
     });
 
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during registration'
+      message: 'Server error during registration. Please try again.'
     });
   }
 });
 
 // @route   POST /api/v1/auth/login
-// @desc    Login user (simplified - just match email and password)
+// @desc    Login user and return session
 // @access  Public
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Basic validation
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -82,38 +129,43 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // Find user by email
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({
+    // Note: In backend with service role, we can't 'sign in' as a user to get a session 
+    // to pass back easily if using createClient with service key (it doesn't maintain state).
+    // However, we can use a fresh client for the login attempt.
+    const { createClient } = require('@supabase/supabase-js');
+    const tempClient = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY || 'dummy');
+
+    const { data, error: loginError } = await tempClient.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (loginError) {
+      return res.status(400).json({
         success: false,
-        message: 'Invalid email or password'
+        message: loginError.message
       });
     }
 
-    // Simple password comparison (plain text)
-    if (user.password !== password) {
-      return res.status(401).json({
-        success: false,
-        message: 'Invalid email or password'
-      });
-    }
-
-    // Return user without password
-    const userResponse = user.toObject();
-    delete userResponse.password;
+    // Fetch profile to return along with session
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
 
     res.json({
       success: true,
       message: 'Login successful',
-      user: userResponse
+      session: data.session,
+      user: profile || data.user
     });
 
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error during login'
+      message: 'Server error during login: ' + error.message
     });
   }
 });

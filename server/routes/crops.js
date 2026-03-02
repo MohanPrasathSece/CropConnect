@@ -1,45 +1,32 @@
 const express = require('express');
+const supabase = require('../config/supabase');
 const { body, validationResult } = require('express-validator');
-const Crop = require('../models/Crop');
-const User = require('../models/User');
+const { autoAnalyzeQuality } = require('../utils/ml_helper');
+const { registerProduce } = require('../config/blockchain');
+const path = require('path');
 
 const router = express.Router();
 
-// @desc    Create new crop (legacy route - use /upload instead)
-// @route   POST /api/v1/crops
-// @access  Public (simplified auth)
-router.post('/', async (req, res) => {
-  try {
-    res.status(400).json({
-      success: false,
-      message: 'This endpoint is deprecated. Use /api/v1/crops/upload instead'
-    });
-  } catch (error) {
-    console.error('Create crop error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error while creating crop'
-    });
-  }
-});
+// Helper to determine category from crop name
+function getCategoryFromName(name) {
+  const lowerName = name.toLowerCase();
 
-// @route   GET /api/v1/crops/my-crops
-// @desc    Get farmer's crops (legacy route)
-// @access  Public (simplified auth)
-router.get('/my-crops', async (req, res) => {
-  try {
-    res.status(400).json({
-      success: false,
-      message: 'This endpoint is deprecated. Use /api/v1/crops/farmer/:email instead'
-    });
-  } catch (error) {
-    console.error('Get my crops error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
+  if (['rice', 'paddy', 'wheat', 'maize', 'corn', 'barley', 'oats'].includes(lowerName)) {
+    return 'grains';
+  } else if (['tomato', 'potato', 'onion', 'carrot', 'cabbage', 'spinach', 'vegetable'].includes(lowerName)) {
+    return 'vegetables';
+  } else if (['apple', 'banana', 'orange', 'mango', 'grapes', 'fruit'].includes(lowerName)) {
+    return 'fruits';
+  } else if (['groundnut', 'peanut', 'lentil', 'chickpea', 'bean', 'pulse'].includes(lowerName)) {
+    return 'pulses';
+  } else if (['turmeric', 'chili', 'pepper', 'coriander', 'cumin', 'spice'].includes(lowerName)) {
+    return 'spices';
+  } else if (['sugarcane', 'cotton', 'tobacco'].includes(lowerName)) {
+    return 'cash_crops';
   }
-});
+
+  return 'grains'; // Default category
+}
 
 // @route   GET /api/v1/crops/marketplace
 // @desc    Get marketplace crops with filters
@@ -48,42 +35,35 @@ router.get('/marketplace', async (req, res) => {
   try {
     const {
       category, location, minPrice, maxPrice, isOrganic, search,
-      page = 1, limit = 12, sortBy = 'listedAt', sortOrder = 'desc'
+      page = 1, limit = 12, sortBy = 'created_at', sortOrder = 'desc'
     } = req.query;
 
-    const query = { status: 'listed', isActive: true };
+    let query = supabase
+      .from('crops')
+      .select('*, farmer:profiles(*)', { count: 'exact' })
+      .eq('status', 'listed')
+      .eq('is_active', true);
 
-    if (category) query.category = category;
-    if (location) {
-      query.$or = [
-        { 'farmLocation.district': new RegExp(location, 'i') },
-        { 'farmLocation.state': new RegExp(location, 'i') }
-      ];
-    }
-    if (minPrice) query.pricePerUnit = { $gte: parseFloat(minPrice) };
-    if (maxPrice) {
-      query.pricePerUnit = query.pricePerUnit || {};
-      query.pricePerUnit.$lte = parseFloat(maxPrice);
-    }
-    if (isOrganic === 'true') query.isOrganic = true;
+    if (category) query = query.eq('category', category);
+    if (isOrganic === 'true') query = query.eq('is_organic', true);
+
+    if (minPrice) query = query.gte('price_per_unit', parseFloat(minPrice));
+    if (maxPrice) query = query.lte('price_per_unit', parseFloat(maxPrice));
+
     if (search) {
-      query.$or = [
-        { name: new RegExp(search, 'i') },
-        { variety: new RegExp(search, 'i') },
-        { description: new RegExp(search, 'i') }
-      ];
+      query = query.or(`name.ilike.%${search}%,variety.ilike.%${search}%,description.ilike.%${search}%`);
     }
 
-    const sortOptions = {};
-    sortOptions[sortBy] = sortOrder === 'desc' ? -1 : 1;
+    if (location) {
+      // Postgres JSONB query for location
+      query = query.or(`farm_location->>district.ilike.%${location}%,farm_location->>state.ilike.%${location}%`);
+    }
 
-    const crops = await Crop.find(query)
-      .populate('farmer', 'name phone address')
-      .sort(sortOptions)
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
+    const { data: crops, count, error } = await query
+      .order(sortBy, { ascending: sortOrder === 'asc' })
+      .range((page - 1) * limit, page * limit - 1);
 
-    const total = await Crop.countDocuments(query);
+    if (error) throw error;
 
     res.json({
       success: true,
@@ -91,8 +71,8 @@ router.get('/marketplace', async (req, res) => {
         crops,
         pagination: {
           current: parseInt(page),
-          pages: Math.ceil(total / limit),
-          total
+          pages: Math.ceil(count / limit),
+          total: count
         }
       }
     });
@@ -101,7 +81,7 @@ router.get('/marketplace', async (req, res) => {
     console.error('Get marketplace crops error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
+      message: 'Server error: ' + error.message
     });
   }
 });
@@ -111,19 +91,24 @@ router.get('/marketplace', async (req, res) => {
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const crop = await Crop.findById(req.params.id)
-      .populate('farmer', 'name phone address')
-      .populate('inquiries.buyer', 'name phone');
+    const { data: crop, error } = await supabase
+      .from('crops')
+      .select('*, farmer:profiles(*)')
+      .eq('id', req.params.id)
+      .single();
 
-    if (!crop || !crop.isActive) {
+    if (error || !crop || !crop.is_active) {
       return res.status(404).json({
         success: false,
         message: 'Crop not found'
       });
     }
 
-    // Increment views (simplified - always increment)
-    await crop.incrementViews();
+    // Increment views (simplified - just update)
+    await supabase
+      .from('crops')
+      .update({ views: (crop.views || 0) + 1 })
+      .eq('id', req.params.id);
 
     res.json({
       success: true,
@@ -134,44 +119,7 @@ router.get('/:id', async (req, res) => {
     console.error('Get crop details error:', error);
     res.status(500).json({
       success: false,
-      message: 'Server error'
-    });
-  }
-});
-
-// @route   DELETE /api/v1/crops/:id
-// @access  Public (simplified auth)
-router.delete('/:id', async (req, res) => {
-  try {
-    res.status(400).json({
-      success: false,
-      message: 'This endpoint requires authentication. Feature not available in simplified mode.'
-    });
-  } catch (error) {
-    console.error('Delete crop error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete crop',
-      error: error.message
-    });
-  }
-});
-
-// @desc    Get farmer's crops (legacy route)
-// @route   GET /api/v1/crops/farmer/my-crops
-// @access  Public (simplified auth)
-router.get('/farmer/my-crops', async (req, res) => {
-  try {
-    res.status(400).json({
-      success: false,
-      message: 'This endpoint is deprecated. Use /api/v1/crops/farmer/:email instead'
-    });
-  } catch (error) {
-    console.error('Get farmer crops error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to get farmer crops',
-      error: error.message
+      message: 'Server error: ' + error.message
     });
   }
 });
@@ -181,7 +129,7 @@ router.get('/farmer/my-crops', async (req, res) => {
 // @access  Public (simplified auth)
 router.post('/upload', async (req, res) => {
   try {
-    const { name, quantity, unit, pricePerUnit, farmerEmail } = req.body;
+    const { name, quantity, unit, pricePerUnit, farmerEmail, variety, category, images, ai_analysis } = req.body;
 
     // Basic validation
     if (!name || !quantity || !farmerEmail) {
@@ -191,34 +139,100 @@ router.post('/upload', async (req, res) => {
       });
     }
 
-    // Find farmer by email
-    const farmer = await User.findOne({ email: farmerEmail });
-    if (!farmer || farmer.role !== 'farmer') {
+    // Find farmer by email in profiles
+    const { data: farmer, error: farmerError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', farmerEmail)
+      .single();
+
+    if (farmerError || !farmer || farmer.role !== 'farmer') {
       return res.status(404).json({
         success: false,
         message: 'Farmer not found'
       });
     }
 
-    // Create crop data
-    const cropData = {
+    // Automatic Quality Check logic
+    let finalAiAnalysis = ai_analysis;
+    if (!finalAiAnalysis && images && images.length > 0) {
+      try {
+        console.log('Automating quality analysis for upload...');
+        // Take the first image. fileUrl is usually like "/uploads/foo.png"
+        const firstImageRelativePath = images[0].startsWith('/uploads/')
+          ? images[0].replace('/uploads/', '')
+          : images[0];
+
+        const absolutePath = path.join(__dirname, '../uploads', firstImageRelativePath);
+        finalAiAnalysis = await autoAnalyzeQuality(absolutePath, name);
+      } catch (err) {
+        console.error('Auto quality analysis failed:', err);
+      }
+    }
+
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substr(2, 5).toUpperCase();
+    const traceabilityId = `CC-${timestamp}-${random}`;
+
+    // Blockchain registration (demo mode - server-side, no MetaMask)
+    let blockchainProduceId = null;
+    try {
+      const gradeMap = { Premium: 0, A: 0, B: 1, C: 2, D: 3, Rejected: 2 };
+      const grade = gradeMap[finalAiAnalysis?.overallGrade] ?? 0;
+      const qty = Math.floor(parseFloat(quantity) || 1);
+      const priceWei = Math.floor((parseFloat(pricePerUnit) || 0) * 1e15);
+      const bcResult = await registerProduce(
+        name,
+        qty,
+        grade,
+        priceWei,
+        'Farm Location',
+        images?.[0] || '',
+        false
+      );
+      if (bcResult.success) blockchainProduceId = bcResult.produceId;
+    } catch (bcErr) {
+      console.warn('Blockchain registration skipped:', bcErr.message);
+    }
+
+    const cropPayload = {
       name,
-      variety: name, // Use name as variety for simplicity
-      category: getCategoryFromName(name),
+      variety: variety || name,
+      category: category || getCategoryFromName(name),
       quantity: parseFloat(quantity),
       unit: unit || 'kg',
-      pricePerUnit: parseFloat(pricePerUnit) || 0,
-      farmer: farmer._id,
-      harvestDate: new Date(),
+      price_per_unit: parseFloat(pricePerUnit) || 0,
+      farmer_id: farmer.id,
+      harvest_date: new Date().toISOString(),
       status: 'listed',
-      farmLocation: farmer.address || {},
-      images: [] // Will be populated when image upload is implemented
+      farm_location: farmer.address || {},
+      images: images || [],
+      ai_analysis: finalAiAnalysis,
+      traceability_id: traceabilityId
     };
+    if (blockchainProduceId != null) cropPayload.blockchain_produce_id = blockchainProduceId;
 
-    const crop = await Crop.create(cropData);
-    
-    // Populate farmer details
-    await crop.populate('farmer', 'name email phone address');
+    const { data: crop, error: insertError } = await supabase
+      .from('crops')
+      .insert([cropPayload])
+      .select('*, farmer:profiles(*)')
+      .single();
+
+    if (insertError) throw insertError;
+
+    // Send notification to farmer
+    try {
+      const { createNotification } = require('../utils/notifications');
+      await createNotification(
+        farmer.id,
+        'Crop Listed Successfully 🌾',
+        `Your ${name} harvest has been listed on the marketplace. Trace ID: ${traceabilityId}`,
+        'success',
+        `/crop/${crop.id}`
+      );
+    } catch (notifyError) {
+      console.error('Failed to send notification:', notifyError);
+    }
 
     res.status(201).json({
       success: true,
@@ -230,8 +244,7 @@ router.post('/upload', async (req, res) => {
     console.error('Upload crop error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to upload crop',
-      error: error.message
+      message: 'Failed to upload crop: ' + error.message
     });
   }
 });
@@ -245,8 +258,13 @@ router.get('/farmer/:email', async (req, res) => {
     const { status, page = 1, limit = 10 } = req.query;
 
     // Find farmer by email
-    const farmer = await User.findOne({ email });
-    if (!farmer) {
+    const { data: farmer, error: farmerError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (farmerError || !farmer) {
       return res.status(404).json({
         success: false,
         message: 'Farmer not found'
@@ -254,40 +272,41 @@ router.get('/farmer/:email', async (req, res) => {
     }
 
     // Build query
-    const query = { farmer: farmer._id, isActive: true };
+    let query = supabase
+      .from('crops')
+      .select('*, farmer:profiles(*)', { count: 'exact' })
+      .eq('farmer_id', farmer.id)
+      .eq('is_active', true);
+
     if (status && status !== 'all') {
-      query.status = status;
+      query = query.eq('status', status);
     }
 
     // Get crops with pagination
-    const crops = await Crop.find(query)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .populate('farmer', 'name email phone address');
+    const { data: crops, count, error } = await query
+      .order('created_at', { ascending: false })
+      .range((parseInt(page) - 1) * parseInt(limit), parseInt(page) * parseInt(limit) - 1);
 
-    const total = await Crop.countDocuments(query);
+    if (error) throw error;
 
-    // Calculate additional stats
-    const totalOrders = 0; // Will be calculated from orders when implemented
+    // Calculate stats
     const totalRevenue = crops
       .filter(crop => crop.status === 'sold')
-      .reduce((sum, crop) => sum + (crop.quantity * crop.pricePerUnit), 0);
+      .reduce((sum, crop) => sum + (parseFloat(crop.quantity) * parseFloat(crop.price_per_unit)), 0);
 
     res.json({
       success: true,
       data: {
         crops,
         stats: {
-          totalCrops: total,
-          totalOrders,
+          totalCrops: count,
           totalRevenue,
           activeCrops: crops.filter(crop => crop.status === 'listed').length
         },
         pagination: {
           current: parseInt(page),
-          pages: Math.ceil(total / parseInt(limit)),
-          total
+          pages: Math.ceil(count / parseInt(limit)),
+          total: count
         }
       }
     });
@@ -296,31 +315,43 @@ router.get('/farmer/:email', async (req, res) => {
     console.error('Get farmer crops error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to get farmer crops',
-      error: error.message
+      message: 'Failed to get farmer crops: ' + error.message
     });
   }
 });
 
-// Helper function to determine category from crop name
-function getCategoryFromName(name) {
-  const lowerName = name.toLowerCase();
-  
-  if (['rice', 'wheat', 'maize', 'corn', 'barley', 'oats'].includes(lowerName)) {
-    return 'grains';
-  } else if (['tomato', 'potato', 'onion', 'carrot', 'cabbage', 'spinach'].includes(lowerName)) {
-    return 'vegetables';
-  } else if (['apple', 'banana', 'orange', 'mango', 'grapes'].includes(lowerName)) {
-    return 'fruits';
-  } else if (['groundnut', 'peanut', 'lentil', 'chickpea', 'bean'].includes(lowerName)) {
-    return 'pulses';
-  } else if (['turmeric', 'chili', 'pepper', 'coriander', 'cumin'].includes(lowerName)) {
-    return 'spices';
-  } else if (['sugarcane', 'cotton', 'tobacco'].includes(lowerName)) {
-    return 'cash_crops';
+// @desc    Update crop details (status, blockchain hash, AI analysis)
+// @route   PUT /api/v1/crops/:id
+// @access  Public (simplified auth)
+router.put('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    const { data: crop, error } = await supabase
+      .from('crops')
+      .update({
+        ...updateData,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Crop updated successfully',
+      crop
+    });
+  } catch (error) {
+    console.error('Update crop error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update crop: ' + error.message
+    });
   }
-  
-  return 'grains'; // Default category
-}
+});
 
 module.exports = router;

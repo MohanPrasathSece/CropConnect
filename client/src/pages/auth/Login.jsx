@@ -1,25 +1,19 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle, CheckCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle, ShieldCheck, Loader2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const Login = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
+  const [formData, setFormData] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const { login } = useAuth();
+  const { login, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    setFormData({ ...formData, [e.target.name]: e.target.value });
     if (error) setError('');
   };
 
@@ -27,188 +21,176 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     setError('');
-    
     const result = await login(formData.email, formData.password);
-    
     if (result.success) {
-      // Redirect immediately to dashboard - location detection will be handled by App.js
       navigate('/dashboard');
     } else {
-      setError(result.error || 'Login failed. Please check your credentials.');
+      setError(result.error || 'Incorrect email or password. Please try again.');
     }
-    
     setLoading(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-white font-bold text-2xl">🌾</span>
+    <div style={{ fontFamily: "'Poppins', sans-serif" }} className="min-h-screen flex bg-slate-50">
+
+      {/* Left: Branding Panel */}
+      <div className="hidden lg:flex lg:w-[42%] relative overflow-hidden">
+        <div
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&q=80&w=2000")' }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/90 via-emerald-800/70 to-emerald-900/80" />
+
+        <div className="relative z-10 flex flex-col justify-between h-full p-14">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-3 w-fit">
+            <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+            </div>
+            <span className="text-white font-semibold text-base tracking-wide">CropConnect</span>
+          </Link>
+
+          {/* Main copy */}
+          <div className="space-y-6">
+            <h2 className="text-4xl font-bold text-white leading-snug">
+              Connecting farmers<br />to better markets.
+            </h2>
+            <p className="text-emerald-100/70 text-base leading-relaxed max-w-xs">
+              Track your crops, verify quality, and get fair prices — all in one place.
+            </p>
+
+            {/* Stats */}
+            <div className="flex gap-8 pt-4">
+              <div>
+                <p className="text-2xl font-bold text-white">12,000+</p>
+                <p className="text-emerald-200/60 text-xs mt-1">Registered farmers</p>
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-white">₹2.4Cr+</p>
+                <p className="text-emerald-200/60 text-xs mt-1">Transactions secured</p>
+              </div>
             </div>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent mb-2">
-            Welcome Back
-          </h1>
-          <p className="text-gray-600 text-lg">
-            Sign in to your CropConnect account
-          </p>
+
+          <p className="text-emerald-200/40 text-xs">© 2026 CropConnect. All rights reserved.</p>
         </div>
+      </div>
 
-        {/* Login Form */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
-          {/* Success Message */}
-          {success && (
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center">
-              <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
-              <span className="text-green-800 font-medium">{success}</span>
+      {/* Right: Form */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-10 bg-white">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="w-full max-w-md"
+        >
+          {/* Mobile logo */}
+          <div className="flex lg:hidden items-center gap-2 mb-10">
+            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
+              <ShieldCheck className="w-4 h-4 text-white" />
             </div>
-          )}
+            <span className="text-slate-800 font-semibold">CropConnect</span>
+          </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center">
-              <AlertCircle className="w-5 h-5 text-red-600 mr-3" />
-              <span className="text-red-800 font-medium">{error}</span>
-            </div>
-          )}
+          {/* Heading */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-slate-900 mb-1.5">Welcome back</h1>
+            <p className="text-slate-500 text-sm">Sign in to your account to continue.</p>
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email Field */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
-              </label>
+          {/* Google sign in */}
+          <button
+            type="button"
+            onClick={() => signInWithGoogle()}
+            className="w-full flex items-center justify-center gap-3 py-3 px-5 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-700 text-sm font-medium mb-6 shadow-sm"
+          >
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="" />
+            Continue with Google
+          </button>
+
+          <div className="flex items-center gap-3 mb-6">
+            <div className="flex-1 h-px bg-slate-100" />
+            <span className="text-slate-400 text-xs">or</span>
+            <div className="flex-1 h-px bg-slate-100" />
+          </div>
+
+          {/* Error */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="flex items-center gap-3 p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 mb-5"
+              >
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span className="text-xs font-medium">{error}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Email address</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
-                </div>
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
-                  id="email"
                   name="email"
                   type="email"
                   required
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500"
-                  placeholder="Enter your email"
                   value={formData.email}
                   onChange={handleChange}
+                  placeholder="you@example.com"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition-all"
                 />
               </div>
             </div>
 
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
-                Password
-              </label>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-slate-700">Password</label>
+                <Link to="/forgot-password" className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-gray-400" />
-                </div>
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                 <input
-                  id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
                   required
-                  className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all duration-200 text-gray-900 placeholder-gray-500"
-                  placeholder="Enter your password"
                   value={formData.password}
                   onChange={handleChange}
+                  placeholder="Enter your password"
+                  className="w-full pl-10 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-300 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition-all"
                 />
                 <button
                   type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
                   onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  ) : (
-                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                  )}
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <input
-                  id="remember-me"
-                  name="remember-me"
-                  type="checkbox"
-                  className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
-                />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
-                  Remember me
-                </label>
-              </div>
-              <div className="text-sm">
-                <Link to="/forgot-password" className="text-green-600 hover:text-green-500 font-medium">
-                  Forgot password?
-                </Link>
-              </div>
-            </div>
-
-            {/* Login Button */}
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center items-center py-3 px-4 border border-transparent text-base font-semibold rounded-xl text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-md shadow-emerald-600/20 transition-all active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-2 mt-2"
             >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  Sign in to CropConnect
-                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                </>
-              )}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Sign in <ArrowRight className="w-4 h-4" /></>}
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="mt-8">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">New to CropConnect?</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Sign Up Link */}
-          <div className="mt-6">
-            <Link
-              to="/register"
-              className="w-full flex justify-center items-center py-3 px-4 border-2 border-green-200 text-base font-semibold rounded-xl text-green-700 bg-green-50 hover:bg-green-100 hover:border-green-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-300 transform hover:scale-105"
-            >
-              Create your account
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="text-center mt-8">
-          <p className="text-sm text-gray-500">
-            By signing in, you agree to our{' '}
-            <Link to="/terms" className="text-green-600 hover:text-green-500 font-medium">
-              Terms of Service
-            </Link>{' '}
-            and{' '}
-            <Link to="/privacy" className="text-green-600 hover:text-green-500 font-medium">
-              Privacy Policy
+          <p className="text-center text-sm text-slate-500 mt-6">
+            Don't have an account?{' '}
+            <Link to="/register" className="text-emerald-600 font-semibold hover:text-emerald-700">
+              Sign up for free
             </Link>
           </p>
-        </div>
+        </motion.div>
       </div>
     </div>
   );

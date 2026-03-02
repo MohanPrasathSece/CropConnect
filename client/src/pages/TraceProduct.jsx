@@ -1,133 +1,214 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { CheckCircle2, AlertCircle, ChevronRight } from 'lucide-react';
-
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+import { formatLocation } from '../utils/format';
+import {
+  ShieldCheck,
+  MapPin,
+  History,
+  Package,
+  Truck,
+  Boxes,
+  Loader2,
+  Lock,
+  Globe,
+  Activity,
+  ArrowLeft
+} from 'lucide-react';
+import { motion } from 'framer-motion';
+import { aggregatorApi } from '../utils/api';
+import LandingFooter from '../components/landing/LandingFooter';
 
 const TraceProduct = () => {
-  const { id } = useParams(); // id is traceabilityId or cropId
+  const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [data, setData] = useState(null);
+  const [traceData, setTraceData] = useState(null);
 
   useEffect(() => {
     const fetchTrace = async () => {
       try {
         setLoading(true);
         setError('');
-        const res = await fetch(`${API_BASE}/qr/trace/${id}`);
-        const json = await res.json();
-        if (!res.ok || !json.success) {
-          throw new Error(json.message || 'Failed to fetch traceability');
+        const response = await aggregatorApi.getTrace(id);
+        if (response.data.success) {
+          setTraceData(response.data.data);
+        } else {
+          setError("Record not found. Please check the tracking ID.");
         }
-        setData(json.data);
       } catch (e) {
-        setError(e.message);
+        setError("Network error. Please check your connection.");
       } finally {
         setLoading(false);
       }
     };
     fetchTrace();
+    window.scrollTo(0, 0);
   }, [id]);
+
+  const getIcon = (stage) => {
+    const lower = stage.toLowerCase();
+    if (lower.includes('farm') || lower.includes('producer')) return History;
+    if (lower.includes('collection') || lower.includes('intake')) return ShieldCheck;
+    if (lower.includes('quality') || lower.includes('verification')) return Package;
+    if (lower.includes('storage')) return MapPin;
+    if (lower.includes('retailer') || lower.includes('market')) return Boxes;
+    return Truck;
+  };
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-12">
-        <div className="text-center text-gray-600">Loading traceability...</div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="container mx-auto px-4 py-12">
-        <div className="max-w-2xl mx-auto bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 mt-0.5" />
-          <div>
-            <div className="font-medium">Failed to load traceability</div>
-            <div className="text-sm">{error}</div>
-          </div>
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8">
+        <Loader2 className="w-12 h-12 text-emerald-500 animate-spin mb-6" />
+        <div className="space-y-2 text-center">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Accessing Records</p>
+          <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Tracking Product Journey...</h2>
         </div>
       </div>
     );
   }
 
-  const { product, chain, collections } = data || {};
+  if (error || !traceData) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8">
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="max-w-md w-full text-center space-y-12">
+          <div className="w-20 h-20 bg-red-50 rounded-3xl flex items-center justify-center mx-auto border border-red-100">
+            <Lock className="w-8 h-8 text-red-600" />
+          </div>
+          <div className="space-y-4">
+            <h2 className="text-4xl font-bold text-slate-900 tracking-tight capitalize">History Not Found</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+              {error || "The tracking ID entered does not exist in our systems."}
+            </p>
+          </div>
+          <Link to="/trace" className="block w-full py-5 bg-slate-900 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-xl hover:-translate-y-1 transition-all active:translate-y-0">
+            Back to Scanner
+          </Link>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-6">
-        <Link to="/marketplace" className="text-green-600 hover:text-green-500 text-sm">← Back to Marketplace</Link>
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      {/* Trace Header */}
+      <div className="bg-white border-b border-slate-100 sticky top-0 z-50">
+        <div className="container mx-auto px-6 h-20 flex items-center justify-between">
+          <Link to="/trace" className="p-3 hover:bg-slate-50 rounded-xl transition-all group">
+            <ArrowLeft className="w-5 h-5 text-slate-400 group-hover:text-slate-900" />
+          </Link>
+          <div className="text-center">
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Product Identity</p>
+            <h1 className="text-sm font-bold text-slate-900 truncate max-w-[150px] sm:max-w-xs">{traceData.product.name}</h1>
+          </div>
+          <div className="w-11" />
+        </div>
       </div>
 
-      {/* Product Summary */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6 mb-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Traceability</h1>
-            <div className="text-sm text-gray-500">Trace ID: {product?.traceabilityId}</div>
-          </div>
-          <div className="flex items-center gap-6">
-            <div>
-              <div className="text-xs text-gray-500">Product</div>
-              <div className="font-medium text-gray-900">{product?.name} · {product?.variety}</div>
+      <main className="flex-grow container mx-auto px-6 py-12 max-w-4xl">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+
+          {/* Left: Product Info Card */}
+          <div className="lg:col-span-1 space-y-8">
+            <div className="bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-6 text-emerald-500/10">
+                <ShieldCheck className="w-12 h-12" />
+              </div>
+              <div className="relative z-10 space-y-8">
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Quality Rating</p>
+                  <h3 className="text-5xl font-bold text-slate-900 tracking-tighter italic">Grade {traceData.product.quality_grade || 'A'}</h3>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between py-3 border-b border-slate-50">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Quantity</span>
+                    <span className="text-xs font-bold text-slate-900">{traceData.product.quantity} KG</span>
+                  </div>
+                  <div className="flex items-center justify-between py-3 border-b border-slate-50">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Origin</span>
+                    <span className="text-xs font-bold text-slate-900">{traceData.product.origin}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-3">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Blockchain ID</span>
+                    <span className="text-[10px] font-bold text-emerald-600 truncate max-w-[80px]">{id.slice(0, 10)}...</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="text-xs text-gray-500">Status</div>
-              <div className="inline-flex items-center gap-1 text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200 text-xs">
-                <CheckCircle2 className="w-3.5 h-3.5" /> {product?.status}
+
+            <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white space-y-6">
+              <div className="flex items-center gap-3">
+                <Globe className="w-5 h-5 text-emerald-400" />
+                <span className="text-[10px] font-bold uppercase tracking-widest">Transparency Data</span>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed font-medium">
+                This product has been verified through a decentralized ledger system, ensuring that the origin and handling data are immutable and authentic.
+              </p>
+              <div className="h-px bg-white/10" />
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Status</span>
+                <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">Verified Journey</span>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Timeline */}
-      <div className="bg-white border border-gray-200 rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Traceability Timeline</h2>
-        <ol className="relative border-s border-gray-200 ml-2">
-          {chain?.map((item, idx) => {
-            const isQuality = item.details && (item.details.qualityGrade || item.details.qualityScore);
-            const isSale = item.details && (item.details.salePrice || item.details.paymentStatus);
-            return (
-              <li key={idx} className="mb-8 ms-6">
-                <span className="absolute -start-3 flex h-6 w-6 items-center justify-center rounded-full bg-green-100 ring-8 ring-white">
-                  <span className="h-2.5 w-2.5 rounded-full bg-green-600"></span>
-                </span>
-                <div className="flex items-center gap-2 text-sm text-gray-500 mb-1">
-                  <span className="font-medium text-gray-900">{item.stage}</span>
-                  <ChevronRight className="w-4 h-4 text-gray-300" />
-                  <span>{item.actor || 'N/A'}</span>
-                  {item.timestamp && (
-                    <>
-                      <ChevronRight className="w-4 h-4 text-gray-300" />
-                      <span>{new Date(item.timestamp).toLocaleString()}</span>
-                    </>
-                  )}
-                </div>
-                {item.location && (
-                  <div className="text-xs text-gray-500 mb-2">Location: {typeof item.location === 'string' ? item.location : JSON.stringify(item.location)}</div>
-                )}
-                {isQuality ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                    <div className="bg-gray-50 border border-gray-100 rounded p-2"><div className="text-xs text-gray-500">Grade</div><div className="font-medium">{item.details.qualityGrade ?? '—'}</div></div>
-                    <div className="bg-gray-50 border border-gray-100 rounded p-2"><div className="text-xs text-gray-500">Score</div><div className="font-medium">{item.details.qualityScore ?? '—'}</div></div>
-                    <div className="bg-gray-50 border border-gray-100 rounded p-2"><div className="text-xs text-gray-500">Quantity</div><div className="font-medium">{item.details.collectedQuantity ?? '—'}</div></div>
-                    <div className="bg-gray-50 border border-gray-100 rounded p-2 col-span-2 md:col-span-4"><div className="text-xs text-gray-500">AI Analysis</div><pre className="text-xs text-gray-700 overflow-x-auto">{JSON.stringify(item.details.aiAnalysis, null, 2)}</pre></div>
-                  </div>
-                ) : isSale ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-                    <div className="bg-gray-50 border border-gray-100 rounded p-2"><div className="text-xs text-gray-500">Sale Price</div><div className="font-medium">₹{item.details.salePrice}</div></div>
-                    <div className="bg-gray-50 border border-gray-100 rounded p-2"><div className="text-xs text-gray-500">Payment</div><div className="font-medium">{item.details.paymentStatus}</div></div>
-                  </div>
-                ) : item.details ? (
-                  <pre className="bg-gray-50 border border-gray-100 text-xs text-gray-700 p-3 rounded-lg overflow-x-auto">{JSON.stringify(item.details, null, 2)}</pre>
-                ) : null}
-              </li>
-            );
-          })}
-        </ol>
-      </div>
+          {/* Right: Timeline */}
+          <div className="lg:col-span-2 space-y-12">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-400">
+                <Activity className="w-5 h-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900 tracking-tight">Timeline</h2>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">Farm to Market Track</p>
+              </div>
+            </div>
+
+            <div className="space-y-0 relative">
+              <div className="absolute left-[27px] top-4 bottom-4 w-px bg-slate-200" />
+
+              {traceData.history.map((step, index) => {
+                const Icon = getIcon(step.stage);
+                return (
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    key={index}
+                    className="relative pl-20 pb-12 last:pb-0 group"
+                  >
+                    <div className="absolute left-0 top-0 w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center z-10 group-hover:bg-slate-900 group-hover:text-white transition-all cursor-default">
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <h4 className="text-sm font-bold text-slate-900 uppercase tracking-tight">{step.stage}</h4>
+                        <span className="px-3 py-1 bg-slate-100 rounded-full text-[8px] font-bold text-slate-500 uppercase tracking-widest">
+                          {new Date(step.timestamp).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 leading-relaxed max-w-lg">
+                        {step.description}
+                      </p>
+                      <div className="flex items-center gap-4 text-[9px] font-bold text-slate-400 uppercase tracking-widest pt-2">
+                        <div className="flex items-center gap-1.5 hover:text-emerald-600 transition-colors">
+                          <MapPin className="w-3 h-3" />
+                          {formatLocation(step.location)}
+                        </div>
+                        <div className="flex items-center gap-1.5 opacity-50">
+                          <ShieldCheck className="w-3 h-3" />
+                          Verified Info
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </main>
+      <LandingFooter />
     </div>
   );
 };

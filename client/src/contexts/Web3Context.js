@@ -1,5 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ethers } from 'ethers';
+import ProduceLedgerABI from '../blockchain_data/ProduceLedger.json';
+import paymentABI from '../blockchain_data/PaymentManager.json';
+import ContractAddresses from '../blockchain_data/contract-addresses.json';
 
 const Web3Context = createContext();
 
@@ -88,6 +91,69 @@ export const Web3Provider = ({ children }) => {
     }
   }, []);
 
+  const getProduceLedger = () => {
+    if (!signer) return null;
+    return new ethers.Contract(
+      ContractAddresses.PRODUCE_LEDGER_ADDRESS,
+      ProduceLedgerABI,
+      signer
+    );
+  };
+
+  const getPaymentManager = () => {
+    if (!signer) return null;
+    return new ethers.Contract(
+      ContractAddresses.PAYMENT_MANAGER_ADDRESS,
+      paymentABI,
+      signer
+    );
+  };
+
+  // Link wallet to profile and grant role via backend
+  const linkWallet = async (walletAddress) => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/v1/blockchain/link-wallet', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}` // Fallback if token is in localstorage
+        },
+        body: JSON.stringify({ walletAddress: walletAddress || account })
+      });
+      const data = await response.json();
+      if (!data.success) throw new Error(data.message);
+      return data;
+    } catch (err) {
+      console.error("Link wallet failed:", err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const registerFarmerRole = linkWallet;
+
+  // Process Escrow Payment
+  const processEscrowPayment = async (produceId, amountInEth) => {
+    const contract = getPaymentManager();
+    if (!contract) throw new Error("Wallet not connected");
+
+    try {
+      setLoading(true);
+      const tx = await contract.processPayment(produceId, {
+        value: ethers.utils.parseEther(amountInEth.toString())
+      });
+      const receipt = await tx.wait();
+      return receipt;
+    } catch (err) {
+      console.error("Payment failed:", err);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const value = {
     provider,
     signer,
@@ -97,7 +163,12 @@ export const Web3Provider = ({ children }) => {
     loading,
     error,
     connectWallet,
-    disconnectWallet
+    disconnectWallet,
+    getProduceLedger,
+    getPaymentManager,
+    registerFarmerRole,
+    linkWallet,
+    processEscrowPayment
   };
 
   return (

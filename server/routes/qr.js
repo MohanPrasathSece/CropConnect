@@ -2,8 +2,7 @@ const express = require('express');
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
-const Crop = require('../models/Crop');
-const AggregatorCollection = require('../models/AggregatorCollection');
+const supabase = require('../config/supabase');
 
 const router = express.Router();
 
@@ -12,10 +11,16 @@ const router = express.Router();
 // @access  Public (idempotent)
 router.get('/generate/:cropId', async (req, res) => {
   try {
-    const crop = await Crop.findById(req.params.cropId)
-      .populate('farmer', 'name phone address');
+    const { cropId } = req.params;
 
-    if (!crop) {
+    // Fetch crop
+    const { data: crop, error: cropError } = await supabase
+      .from('crops')
+      .select('*, farmer:profiles(*)')
+      .eq('id', cropId)
+      .single();
+
+    if (cropError || !crop) {
       return res.status(404).json({
         success: false,
         message: 'Crop not found'
@@ -24,17 +29,27 @@ router.get('/generate/:cropId', async (req, res) => {
 
     // Ensure uploads directory exists
     const uploadsDir = path.join(process.cwd(), 'uploads', 'qr');
-    fs.mkdirSync(uploadsDir, { recursive: true });
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
 
-    // Build QR payload: prefer traceabilityId for stability
+    // Use existing traceability_id or generate one if missing
+    const traceId = crop.traceability_id || `CC-${Date.now()}`;
+
+    // Save traceId if it was missing
+    if (!crop.traceability_id) {
+      await supabase.from('crops').update({ traceability_id: traceId }).eq('id', cropId);
+    }
+
+    // Build QR payload
     const payload = {
-      traceabilityId: crop.traceabilityId,
-      cropId: String(crop._id),
+      traceabilityId: traceId,
+      cropId: crop.id,
       type: 'crop',
-      url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/trace/${crop.traceabilityId}`
+      url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/trace/${traceId}`
     };
 
-    const fileName = `crop-${crop.traceabilityId}.png`;
+    const fileName = `crop-${traceId}.png`;
     const filePath = path.join(uploadsDir, fileName);
 
     // Generate and write QR PNG
@@ -43,25 +58,34 @@ router.get('/generate/:cropId', async (req, res) => {
       margin: 2
     });
 
-    // Update crop document with QR metadata (idempotent)
-    crop.qrCode = {
-      code: payload.traceabilityId,
-      imageUrl: `/uploads/qr/${fileName}`,
-      generatedAt: new Date()
-    };
-    await crop.save();
+    const qrImageUrl = `/uploads/qr/${fileName}`;
+
+    // Update crop document with QR metadata
+    const { error: updateError } = await supabase
+      .from('crops')
+      .update({
+        qr_code: {
+          code: traceId,
+          imageUrl: qrImageUrl,
+          generatedAt: new Date()
+        }
+      })
+      .eq('id', cropId);
+
+    if (updateError) throw updateError;
 
     res.json({
       success: true,
       message: 'QR code generated',
       qr: {
-        imageUrl: crop.qrCode.imageUrl,
-        code: crop.qrCode.code,
+        imageUrl: qrImageUrl,
+        code: traceId,
         payload
       }
     });
 
   } catch (error) {
+    console.error('QR Generate Error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to generate QR code',
@@ -76,10 +100,15 @@ router.get('/generate/:cropId', async (req, res) => {
 router.get('/verify/:code', async (req, res) => {
   try {
     const { code } = req.params;
-    const crop = await Crop.findOne({ $or: [{ traceabilityId: code }, { _id: code }] })
-      .populate('farmer', 'name phone address farmerDetails');
 
-    if (!crop) {
+    // Try to find by traceability_id or id
+    const { data: crop, error } = await supabase
+      .from('crops')
+      .select('*, farmer:profiles(*)')
+      .or(`traceability_id.eq.${code},id.eq.${code}`)
+      .single();
+
+    if (error || !crop) {
       return res.status(404).json({ success: false, message: 'QR not found' });
     }
 
@@ -87,18 +116,19 @@ router.get('/verify/:code', async (req, res) => {
       success: true,
       data: {
         crop: {
-          id: crop._id,
-          traceabilityId: crop.traceabilityId,
+          id: crop.id,
+          traceabilityId: crop.traceability_id,
           name: crop.name,
           variety: crop.variety,
           farmer: crop.farmer,
           status: crop.status,
-          qrCode: crop.qrCode
+          qrCode: crop.qr_code
         }
       }
     });
 
   } catch (error) {
+    console.error('QR Verify Error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to verify QR',
@@ -114,18 +144,24 @@ router.get('/trace/:traceabilityId', async (req, res) => {
   try {
     const { traceabilityId } = req.params;
 
-    // Find crop by traceabilityId (or fallback by id)
-    const crop = await Crop.findOne({ $or: [{ traceabilityId }, { _id: traceabilityId }] })
-      .populate('farmer', 'name address phone farmLocation');
+    // Find crop by traceabilityId
+    const { data: crop, error: cropError } = await supabase
+      .from('crops')
+      .select('*, farmer:profiles(*)')
+      .or(`traceability_id.eq.${traceabilityId},id.eq.${traceabilityId}`)
+      .single();
 
-    if (!crop) {
+    if (cropError || !crop) {
       return res.status(404).json({ success: false, message: 'Crop not found' });
     }
 
-    // Find all aggregator collections linked to this crop
-    const collections = await AggregatorCollection.find({ sourceCrop: crop._id, isActive: true })
-      .populate('aggregator', 'name address')
-      .populate('buyer.buyerId', 'name address');
+    // Find collections linked to this crop
+    const { data: collections, error: colError } = await supabase
+      .from('collections')
+      .select('*, aggregator:profiles(*)') // Add buyer info if available in schema
+      .eq('source_crop_id', crop.id);
+
+    if (colError) throw colError;
 
     // Build traceability chain
     const chain = [];
@@ -133,60 +169,45 @@ router.get('/trace/:traceabilityId', async (req, res) => {
     // Stage 1: Farm Production
     chain.push({
       stage: 'Farm Production',
-      actor: crop.farmer?.name,
-      location: crop.farmLocation,
-      timestamp: crop.harvestDate,
+      actor: crop.farmer?.name || 'Unknown Farmer',
+      location: crop.farm_location,
+      timestamp: crop.harvest_date || crop.created_at,
       details: {
         cropName: crop.name,
         variety: crop.variety,
         category: crop.category,
         quality: crop.quality,
-        isOrganic: crop.isOrganic
+        isOrganic: crop.is_organic
       }
     });
 
-    // Subsequent stages from each collection (ordered by date)
-    const sortedCollections = collections.sort((a, b) => new Date(a.collectionDate) - new Date(b.collectionDate));
+    // Subsequent stages from collections
+    const sortedCollections = (collections || []).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
     for (const col of sortedCollections) {
       chain.push({
         stage: 'Collection & Quality Check',
-        actor: col.aggregator?.name,
-        location: col.collectionLocation,
-        timestamp: col.collectionDate,
+        actor: col.aggregator?.name || 'Aggregator',
+        location: col.collection_location,
+        timestamp: col.created_at, // Accessing created_at as collection timestamp
         details: {
-          qualityGrade: col.qualityAssessment?.overallGrade,
-          qualityScore: col.qualityAssessment?.qualityScore,
-          collectedQuantity: col.collectedQuantity,
-          aiAnalysis: col.qualityAssessment?.aiAnalysis
+          qualityGrade: col.quality_assessment?.overallGrade,
+          qualityScore: col.quality_assessment?.qualityScore,
+          collectedQuantity: col.collected_quantity,
+          aiAnalysis: col.quality_assessment?.aiAnalysis
         }
       });
 
-      // Append internal traceability chain entries
-      if (Array.isArray(col.traceability?.traceabilityChain)) {
-        for (const entry of col.traceability.traceabilityChain) {
+      // Add additional stages from traceability_chain column if exists (JSONB)
+      if (Array.isArray(col.traceability_chain)) {
+        for (const entry of col.traceability_chain) {
           chain.push({
             stage: entry.stage,
-            actor: entry.actor,
-            location: entry.location,
+            actor: entry.actor, // ID might need resolution if just ID
             timestamp: entry.timestamp,
-            details: { action: entry.action, notes: entry.notes }
+            details: { note: entry.action || entry.notes }
           });
         }
-      }
-
-      // Add sale stage if sold
-      if (col.buyer?.buyerId) {
-        chain.push({
-          stage: 'Sale',
-          actor: col.buyer.buyerId.name,
-          location: col.buyer.buyerId.address,
-          timestamp: col.buyer.saleDate,
-          details: {
-            salePrice: col.buyer.salePrice,
-            paymentStatus: col.buyer.paymentStatus
-          }
-        });
       }
     }
 
@@ -194,20 +215,20 @@ router.get('/trace/:traceabilityId', async (req, res) => {
       success: true,
       data: {
         product: {
-          cropId: crop._id,
-          traceabilityId: crop.traceabilityId,
+          cropId: crop.id,
+          traceabilityId: crop.traceability_id,
           name: crop.name,
           variety: crop.variety,
           category: crop.category,
           status: crop.status,
-          qrCode: crop.qrCode
+          qrCode: crop.qr_code
         },
-        chain,
-        collections: sortedCollections
+        chain
       }
     });
 
   } catch (error) {
+    console.error('QR Trace Error:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch traceability chain',

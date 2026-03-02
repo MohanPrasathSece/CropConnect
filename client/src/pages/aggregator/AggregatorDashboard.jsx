@@ -1,374 +1,160 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { 
-  QrCode, 
-  Scan, 
-  TrendingUp, 
-  Package, 
-  CheckCircle, 
-  AlertCircle,
-  Eye,
-  Truck,
-  BarChart3,
-  Camera,
-  MapPin,
-  Clock,
-  Star
-} from 'lucide-react';
-import axios from 'axios';
+import React, { useState, useEffect } from "react";
+import { Users, Warehouse, ClipboardList, DollarSign, Loader2, AlertCircle, Activity, Search, QrCode } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
+import { aggregatorApi } from "../../utils/api";
 
-const AggregatorDashboard = () => {
+export default function AggregatorDashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [collections, setCollections] = useState([]);
-  const [analytics, setAnalytics] = useState({});
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (user?.role === 'aggregator') {
-      fetchDashboardData();
-    }
-  }, [user]);
+    fetchDashboardData();
+  }, []);
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
-      const [collectionsRes, analyticsRes] = await Promise.all([
-        axios.get('/api/v1/aggregator/collections?limit=10'),
-        axios.get('/api/v1/aggregator/analytics')
-      ]);
-
-      if (collectionsRes.data.success) {
-        setCollections(collectionsRes.data.data.collections);
+      const response = await aggregatorApi.getDashboard();
+      if (response.data.success) {
+        setData(response.data.data);
+      } else {
+        setError("Failed to fetch node telemetry.");
       }
-
-      if (analyticsRes.data.success) {
-        setAnalytics(analyticsRes.data.data);
-      }
-    } catch (error) {
-      console.error('Dashboard data fetch error:', error);
+    } catch (err) {
+      console.error("Aggregator dashboard fetch error:", err);
+      setError("Server connection failure.");
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'collected': 'bg-blue-100 text-blue-800',
-      'quality_checked': 'bg-green-100 text-green-800',
-      'stored': 'bg-yellow-100 text-yellow-800',
-      'processed': 'bg-purple-100 text-purple-800',
-      'ready_for_sale': 'bg-indigo-100 text-indigo-800',
-      'sold': 'bg-emerald-100 text-emerald-800',
-      'in_transit': 'bg-orange-100 text-orange-800',
-      'delivered': 'bg-teal-100 text-teal-800',
-      'rejected': 'bg-red-100 text-red-800'
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
-  const getQualityColor = (grade) => {
-    const colors = {
-      'Premium': 'text-purple-600',
-      'A': 'text-green-600',
-      'B': 'text-blue-600',
-      'C': 'text-yellow-600',
-      'Rejected': 'text-red-600'
-    };
-    return colors[grade] || 'text-gray-600';
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-green-500"></div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-8 h-8 text-emerald-600 animate-spin" />
+          <p className="text-sm text-slate-500 font-medium tracking-tight uppercase tracking-widest">Loading Node...</p>
+        </div>
       </div>
     );
   }
 
+  if (error || !data) {
+    return (
+      <div className="bg-white rounded-lg p-10 text-center border border-slate-200 shadow-sm max-w-md mx-auto mt-20">
+        <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-4" />
+        <h2 className="text-lg font-semibold text-slate-900 mb-2">Sync Refused</h2>
+        <p className="text-sm text-slate-500 mb-8">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="w-full py-2.5 bg-slate-900 text-white rounded-md font-medium hover:bg-slate-800 transition-colors shadow-sm"
+        >
+          Retry Connection
+        </button>
+      </div>
+    );
+  }
+
+  const { stats, chartData, recentActivity } = data;
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            🏭 Aggregator Dashboard
-          </h1>
-          <p className="text-gray-600">
-            Welcome back, {user?.name}! Manage your crop collections and quality assessments.
-          </p>
+    <div className="space-y-6 pb-12">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Aggregator Hub</h1>
+          <p className="text-sm text-slate-500 font-medium">Monitoring {stats.pendingCollections} pending collections.</p>
         </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Scan className="w-6 h-6 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <h3 className="text-lg font-semibold text-gray-900">Scan QR Code</h3>
-                <p className="text-sm text-gray-600">Scan farmer's crop QR</p>
-              </div>
-            </div>
-            <button className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
-              Start Scanning
-            </button>
+        <div className="flex items-center gap-3">
+          <div className="relative group">
+            <Search className="absolute left-3 shadow-md top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 group-focus-within:text-emerald-500 transition-colors" />
+            <input
+              type="text"
+              placeholder="Search collections..."
+              className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 w-64 shadow-sm transition-all"
+            />
           </div>
+          <button
+            onClick={() => navigate('/aggregator/scan-qr')}
+            className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 transition-colors shadow-sm flex items-center gap-2"
+          >
+            <QrCode className="w-4 h-4" /> Scan QR
+          </button>
+        </div>
+      </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 rounded-lg">
-                <Camera className="w-6 h-6 text-green-600" />
+      {/* Cluster Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { title: "Pending Pickups", val: stats.pendingCollections, icon: Users, color: "text-emerald-600", bg: "bg-emerald-50" },
+          { title: "Inventory Held", val: stats.inventoryHeld, icon: Warehouse, color: "text-slate-600", bg: "bg-slate-50" },
+          { title: "Active Orders", val: stats.activeOrders, icon: ClipboardList, color: "text-blue-600", bg: "bg-blue-50" },
+          { title: "Total Revenue", val: `₹${stats.revenue.toLocaleString()}`, icon: DollarSign, color: "text-indigo-600", bg: "bg-indigo-50" }
+        ].map((card, i) => (
+          <div key={i} className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm transition-all hover:shadow-md">
+            <div className="flex items-center gap-3 mb-3">
+              <div className={`p-2 ${card.bg} rounded-lg ${card.color}`}>
+                <card.icon className="w-4 h-4" />
               </div>
-              <div className="ml-4">
-                <h3 className="text-lg font-semibold text-gray-900">Quality Check</h3>
-                <p className="text-sm text-gray-600">AI-powered analysis</p>
-              </div>
+              <h3 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{card.title}</h3>
             </div>
-            <button className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors">
-              New Check
-            </button>
+            <p className="text-2xl font-bold text-slate-900 tracking-tight">{card.val}</p>
           </div>
+        ))}
+      </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center">
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Package className="w-6 h-6 text-purple-600" />
-              </div>
-              <div className="ml-4">
-                <h3 className="text-lg font-semibold text-gray-900">Collections</h3>
-                <p className="text-sm text-gray-600">Manage inventory</p>
-              </div>
-            </div>
-            <button className="mt-4 w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors">
-              View All
-            </button>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 transform hover:scale-105">
-            <div className="flex items-center">
-              <div className="p-3 bg-orange-100 rounded-lg">
-                <BarChart3 className="w-6 h-6 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <h3 className="text-lg font-semibold text-gray-900">Analytics</h3>
-                <p className="text-sm text-gray-600">Performance metrics</p>
-              </div>
-            </div>
-            <button className="mt-4 w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors">
-              View Reports
-            </button>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Analytics area */}
+        <div className="lg:col-span-2 bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
+          <h2 className="text-base font-semibold text-slate-800 mb-8 uppercase tracking-wider">Node Throughput</h2>
+          <div className="h-[350px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: "#fff", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: '12px' }}
+                />
+                <Bar dataKey="collections" fill="#10b981" radius={[2, 2, 0, 0]} barSize={26} />
+                <Bar dataKey="sales" fill="#334155" radius={[2, 2, 0, 0]} barSize={26} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Analytics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Collections</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {analytics.analytics?.totalCollections || 0}
-                </p>
-              </div>
-              <div className="p-3 bg-blue-100 rounded-lg">
-                <Package className="w-8 h-8 text-blue-600" />
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center text-sm text-green-600">
-                <TrendingUp className="w-4 h-4 mr-1" />
-                <span>+12% from last month</span>
-              </div>
-            </div>
+        {/* Real-time feed */}
+        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col h-full">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-base font-semibold text-slate-800 uppercase tracking-wider">Activity Feed</h2>
+            <Activity className="w-4 h-4 text-slate-400" />
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Quantity</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {analytics.analytics?.totalQuantity || 0}
-                  <span className="text-lg text-gray-500 ml-1">kg</span>
-                </p>
-              </div>
-              <div className="p-3 bg-green-100 rounded-lg">
-                <TrendingUp className="w-8 h-8 text-green-600" />
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center text-sm text-green-600">
-                <TrendingUp className="w-4 h-4 mr-1" />
-                <span>+8% from last month</span>
-              </div>
-            </div>
+          <div className="space-y-4 flex-grow overflow-y-auto max-h-[450px]">
+            {recentActivity.length > 0 ? (
+              recentActivity.map((item) => (
+                <div key={item.id} className="p-4 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-white hover:border-slate-200 transition-all cursor-default">
+                  <p className="text-xs font-semibold text-slate-700 mb-2">{item.text}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{item.time}</span>
+                    <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-bold tracking-widest ${item.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                      {item.status}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs text-slate-400 italic text-center py-10">No recent activity logged.</p>
+            )}
           </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Average Quality</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  {Math.round(analytics.analytics?.averageQuality || 0)}
-                  <span className="text-lg text-gray-500 ml-1">/100</span>
-                </p>
-              </div>
-              <div className="p-3 bg-yellow-100 rounded-lg">
-                <Star className="w-8 h-8 text-yellow-600" />
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center text-sm text-green-600">
-                <CheckCircle className="w-4 h-4 mr-1" />
-                <span>Excellent quality</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Value</p>
-                <p className="text-3xl font-bold text-gray-900">
-                  ₹{(analytics.analytics?.totalValue || 0).toLocaleString()}
-                </p>
-              </div>
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <TrendingUp className="w-8 h-8 text-purple-600" />
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center text-sm text-green-600">
-                <TrendingUp className="w-4 h-4 mr-1" />
-                <span>+15% from last month</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Collections */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Recent Collections</h2>
-          </div>
-          
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Collection ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Crop Details
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Farmer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quality
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quantity
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {collections.map((collection) => (
-                  <tr key={collection._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <QrCode className="w-5 h-5 text-gray-400 mr-2" />
-                        <span className="text-sm font-medium text-gray-900">
-                          {collection.collectionId}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {collection.sourceCrop?.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {collection.sourceCrop?.variety}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{collection.farmer?.name}</div>
-                      <div className="text-sm text-gray-500">{collection.farmer?.phone}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <span className={`text-sm font-semibold ${getQualityColor(collection.qualityAssessment?.overallGrade)}`}>
-                          {collection.qualityAssessment?.overallGrade}
-                        </span>
-                        <span className="ml-2 text-xs text-gray-500">
-                          ({collection.qualityAssessment?.qualityScore}/100)
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {collection.collectedQuantity} {collection.collectedUnit}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(collection.status)}`}>
-                        {collection.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {new Date(collection.collectionDate).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button className="text-blue-600 hover:text-blue-900 transition-colors">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button className="text-green-600 hover:text-green-900 transition-colors">
-                          <QrCode className="w-4 h-4" />
-                        </button>
-                        {collection.blockchain?.isConfirmed && (
-                          <div className="text-purple-600" title="Stored on Blockchain">
-                            <CheckCircle className="w-4 h-4" />
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {collections.length === 0 && (
-            <div className="text-center py-12">
-              <Package className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No collections yet</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Start by scanning a farmer's QR code to collect crops.
-              </p>
-              <div className="mt-6">
-                <button className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
-                  <Scan className="w-4 h-4 mr-2" />
-                  Scan QR Code
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
-};
-
-export default AggregatorDashboard;
+}

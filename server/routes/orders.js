@@ -1,6 +1,6 @@
 const express = require('express');
-const Order = require('../models/Order');
-const User = require('../models/User');
+const supabase = require('../config/supabase');
+const crypto = require('crypto');
 
 const router = express.Router();
 
@@ -10,10 +10,15 @@ const router = express.Router();
 router.get('/farmer/:email', async (req, res) => {
   try {
     const { email } = req.params;
-    
+
     // Find farmer by email
-    const farmer = await User.findOne({ email });
-    if (!farmer) {
+    const { data: farmer, error: farmerError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (farmerError || !farmer) {
       return res.status(404).json({
         success: false,
         message: 'Farmer not found'
@@ -21,10 +26,13 @@ router.get('/farmer/:email', async (req, res) => {
     }
 
     // Get all orders for this farmer
-    const orders = await Order.find({ farmerId: farmer._id })
-      .populate('buyerId', 'name email phone')
-      .populate('cropId', 'name variety images')
-      .sort({ orderDate: -1 });
+    const { data: orders, error: ordersError } = await supabase
+      .from('orders')
+      .select('*, crop:crops(*), buyer:profiles!orders_buyer_id_fkey(*)')
+      .eq('seller_id', farmer.id)
+      .order('created_at', { ascending: false });
+
+    if (ordersError) throw ordersError;
 
     res.json({
       success: true,
@@ -35,8 +43,7 @@ router.get('/farmer/:email', async (req, res) => {
     console.error('Get farmer orders error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch orders',
-      error: error.message
+      message: 'Failed to fetch orders: ' + error.message
     });
   }
 });
@@ -47,10 +54,15 @@ router.get('/farmer/:email', async (req, res) => {
 router.get('/buyer/:email', async (req, res) => {
   try {
     const { email } = req.params;
-    
+
     // Find buyer by email
-    const buyer = await User.findOne({ email });
-    if (!buyer) {
+    const { data: buyer, error: buyerError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (buyerError || !buyer) {
       return res.status(404).json({
         success: false,
         message: 'Buyer not found'
@@ -58,10 +70,13 @@ router.get('/buyer/:email', async (req, res) => {
     }
 
     // Get all orders for this buyer
-    const orders = await Order.find({ buyerId: buyer._id })
-      .populate('farmerId', 'name email phone address')
-      .populate('cropId', 'name variety images')
-      .sort({ orderDate: -1 });
+    const { data: orders, error: ordersError } = await supabase
+      .from('orders')
+      .select('*, crop:crops(*), farmer:profiles!orders_seller_id_fkey(*)')
+      .eq('buyer_id', buyer.id)
+      .order('created_at', { ascending: false });
+
+    if (ordersError) throw ordersError;
 
     res.json({
       success: true,
@@ -72,8 +87,7 @@ router.get('/buyer/:email', async (req, res) => {
     console.error('Get buyer orders error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch orders',
-      error: error.message
+      message: 'Failed to fetch orders: ' + error.message
     });
   }
 });
@@ -98,8 +112,8 @@ router.post('/', async (req, res) => {
     } = req.body;
 
     // Find farmer and buyer
-    const farmer = await User.findOne({ email: farmerEmail });
-    const buyer = await User.findOne({ email: buyerEmail });
+    const { data: farmer } = await supabase.from('profiles').select('*').eq('email', farmerEmail).single();
+    const { data: buyer } = await supabase.from('profiles').select('*').eq('email', buyerEmail).single();
 
     if (!farmer || !buyer) {
       return res.status(404).json({
@@ -110,36 +124,37 @@ router.post('/', async (req, res) => {
 
     // Calculate total amount
     const totalAmount = quantity * pricePerUnit;
+    const orderId = 'ORD-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5).toUpperCase();
 
     // Create new order
-    const order = new Order({
-      cropId,
-      cropName,
-      farmerId: farmer._id,
-      farmerName: farmer.name,
-      farmerEmail: farmer.email,
-      buyerId: buyer._id,
-      buyerName: buyer.name,
-      buyerEmail: buyer.email,
-      buyerPhone: buyer.phone,
-      quantity,
-      unit,
-      pricePerUnit,
-      totalAmount,
-      deliveryAddress,
-      notes,
-      qualityRequirements,
-      expectedDeliveryDate: expectedDeliveryDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // 3 days default
-    });
+    const { data: order, error: insertError } = await supabase
+      .from('orders')
+      .insert([{
+        order_id: orderId,
+        crop_id: cropId,
+        seller_id: farmer.id,
+        buyer_id: buyer.id,
+        quantity: parseFloat(quantity),
+        unit,
+        price_per_unit: parseFloat(pricePerUnit),
+        total_amount: totalAmount,
+        delivery_address: deliveryAddress,
+        status: 'pending',
+        payment_status: 'pending',
+        notes,
+        quality_requirements: qualityRequirements,
+        expected_delivery_date: expectedDeliveryDate || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+        tracking_updates: [{
+          status: 'pending',
+          message: 'Order placed successfully',
+          timestamp: new Date().toISOString(),
+          location: deliveryAddress?.district || ''
+        }]
+      }])
+      .select()
+      .single();
 
-    // Add initial tracking update
-    order.trackingUpdates.push({
-      status: 'pending',
-      message: 'Order placed successfully',
-      location: deliveryAddress?.district || ''
-    });
-
-    await order.save();
+    if (insertError) throw insertError;
 
     res.status(201).json({
       success: true,
@@ -150,8 +165,7 @@ router.post('/', async (req, res) => {
     console.error('Create order error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to create order',
-      error: error.message
+      message: 'Failed to create order: ' + error.message
     });
   }
 });
@@ -164,43 +178,109 @@ router.put('/:orderId/status', async (req, res) => {
     const { orderId } = req.params;
     const { status, message, location, userEmail } = req.body;
 
-    const order = await Order.findOne({ orderId });
-    if (!order) {
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('order_id', orderId)
+      .single();
+
+    if (orderError || !order) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
       });
     }
 
-    // Verify user is either farmer or buyer
-    const user = await User.findOne({ email: userEmail });
-    if (!user || (user._id.toString() !== order.farmerId.toString() && user._id.toString() !== order.buyerId.toString())) {
+    const { data: user } = await supabase.from('profiles').select('id').eq('email', userEmail).single();
+    if (!user || (user.id !== order.seller_id && user.id !== order.buyer_id)) {
       return res.status(403).json({
         success: false,
         message: 'Unauthorized to update this order'
       });
     }
 
-    // Update status with tracking
-    await order.updateStatus(status, message, location);
+    const updatedTracking = [
+      ...(order.tracking_updates || []),
+      {
+        status,
+        message: message || `Order status updated to ${status}`,
+        timestamp: new Date().toISOString(),
+        location: location || ''
+      }
+    ];
 
-    // Update delivery date if delivered
-    if (status === 'delivered' && !order.actualDeliveryDate) {
-      order.actualDeliveryDate = new Date();
-      await order.save();
+    const updateData = {
+      status,
+      tracking_updates: updatedTracking
+    };
+
+    if (status === 'delivered') {
+      updateData.actual_delivery_date = new Date().toISOString();
     }
+
+    const { data: updatedOrder, error: updateError } = await supabase
+      .from('orders')
+      .update(updateData)
+      .eq('order_id', orderId)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    // --- BLOCKCHAIN INTEGRATION: RELEASE ESCROW ---
+    if (status === 'delivered' && updatedOrder.payment_status === 'escrowed') {
+      try {
+        const { releaseEscrow } = require('../config/blockchain');
+
+        const { data: crop } = await supabase.from('crops').select('blockchain_produce_id, traceability_id').eq('id', updatedOrder.crop_id).single();
+        const produceId = crop?.blockchain_produce_id ?? crop?.traceability_id;
+        const { data: farmer } = await supabase.from('profiles').select('wallet_address').eq('id', updatedOrder.seller_id).single();
+
+        if (produceId != null && farmer?.wallet_address && typeof produceId === 'number') {
+          console.log(`⛓️  Initializing blockchain escrow release for produce ${produceId}`);
+          const releaseResult = await releaseEscrow(produceId, farmer.wallet_address);
+
+            if (releaseResult.success) {
+              await supabase.from('orders').update({
+                payment_status: 'paid',
+                notes: `${updatedOrder.notes}\n[✅ BLOCKCHAIN ESCROW RELEASED]\nTx: ${releaseResult.txHash}`
+              }).eq('id', updatedOrder.id);
+
+              // Notify Farmer
+              try {
+                const { createNotification } = require('../utils/notifications');
+                await createNotification(
+                  updatedOrder.seller_id,
+                  'Payment Received! 💰',
+                  `Escrow funds for Order ${updatedOrder.order_id} have been released to your wallet.`,
+                  'success',
+                  '/farmer/payments'
+                );
+              } catch (notifyErr) {
+                console.error('Escrow release notification failed:', notifyErr);
+              }
+
+              console.log('✅ Blockchain escrow released successfully');
+            }
+        } else if (!farmer?.wallet_address) {
+          console.log('⛓️  Escrow skip: farmer has no wallet address (demo mode)');
+        }
+      } catch (bcError) {
+        console.error('Blockchain escrow release trigger failed:', bcError);
+      }
+    }
+    // ----------------------------------------------
 
     res.json({
       success: true,
       message: 'Order status updated successfully',
-      order
+      order: updatedOrder
     });
   } catch (error) {
     console.error('Update order status error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update order status',
-      error: error.message
+      message: 'Failed to update order status: ' + error.message
     });
   }
 });
@@ -212,12 +292,13 @@ router.get('/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
 
-    const order = await Order.findOne({ orderId })
-      .populate('farmerId', 'name email phone address')
-      .populate('buyerId', 'name email phone address')
-      .populate('cropId', 'name variety images description');
+    const { data: order, error } = await supabase
+      .from('orders')
+      .select('*, crop:crops(*), farmer:profiles!orders_seller_id_fkey(*), buyer:profiles!orders_buyer_id_fkey(*)')
+      .eq('order_id', orderId)
+      .single();
 
-    if (!order) {
+    if (error || !order) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
@@ -232,8 +313,7 @@ router.get('/:orderId', async (req, res) => {
     console.error('Get order details error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch order details',
-      error: error.message
+      message: 'Failed to fetch order details: ' + error.message
     });
   }
 });
@@ -246,15 +326,20 @@ router.put('/:orderId/rating', async (req, res) => {
     const { orderId } = req.params;
     const { userEmail, rating, feedback, ratingType } = req.body;
 
-    const order = await Order.findOne({ orderId });
-    if (!order) {
+    const { data: order, error: orderError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('order_id', orderId)
+      .single();
+
+    if (orderError || !order) {
       return res.status(404).json({
         success: false,
         message: 'Order not found'
       });
     }
 
-    const user = await User.findOne({ email: userEmail });
+    const { data: user } = await supabase.from('profiles').select('id').eq('email', userEmail).single();
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -263,10 +348,11 @@ router.put('/:orderId/rating', async (req, res) => {
     }
 
     // Check if user is farmer or buyer and update appropriate rating
-    if (user._id.toString() === order.farmerId.toString() && ratingType === 'buyer') {
-      order.buyerRating = { rating, feedback };
-    } else if (user._id.toString() === order.buyerId.toString() && ratingType === 'farmer') {
-      order.farmerRating = { rating, feedback };
+    const updateData = {};
+    if (user.id === order.seller_id && ratingType === 'buyer') {
+      updateData.buyer_rating = { rating, feedback };
+    } else if (user.id === order.buyer_id && ratingType === 'farmer') {
+      updateData.farmer_rating = { rating, feedback };
     } else {
       return res.status(403).json({
         success: false,
@@ -274,19 +360,25 @@ router.put('/:orderId/rating', async (req, res) => {
       });
     }
 
-    await order.save();
+    const { data: updatedOrder, error: updateError } = await supabase
+      .from('orders')
+      .update(updateData)
+      .eq('order_id', orderId)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
 
     res.json({
       success: true,
       message: 'Rating added successfully',
-      order
+      order: updatedOrder
     });
   } catch (error) {
     console.error('Add rating error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to add rating',
-      error: error.message
+      message: 'Failed to add rating: ' + error.message
     });
   }
 });
@@ -297,31 +389,50 @@ router.put('/:orderId/rating', async (req, res) => {
 router.get('/farmer/:email/stats', async (req, res) => {
   try {
     const { email } = req.params;
-    
-    const farmer = await User.findOne({ email });
-    if (!farmer) {
+
+    const { data: farmer, error: farmerError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single();
+
+    if (farmerError || !farmer) {
       return res.status(404).json({
         success: false,
         message: 'Farmer not found'
       });
     }
 
-    // Get order statistics
-    const totalOrders = await Order.countDocuments({ farmerId: farmer._id });
-    const pendingOrders = await Order.countDocuments({ farmerId: farmer._id, status: 'pending' });
-    const completedOrders = await Order.countDocuments({ farmerId: farmer._id, status: 'delivered' });
-    
-    // Calculate total revenue
-    const revenueResult = await Order.aggregate([
-      { $match: { farmerId: farmer._id, status: 'delivered' } },
-      { $group: { _id: null, totalRevenue: { $sum: '$totalAmount' } } }
-    ]);
-    const totalRevenue = revenueResult.length > 0 ? revenueResult[0].totalRevenue : 0;
+    const { count: totalOrders } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('seller_id', farmer.id);
 
-    // Get recent orders
-    const recentOrders = await Order.find({ farmerId: farmer._id })
-      .populate('buyerId', 'name')
-      .sort({ orderDate: -1 })
+    const { count: pendingOrders } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('seller_id', farmer.id)
+      .eq('status', 'pending');
+
+    const { count: completedOrders } = await supabase
+      .from('orders')
+      .select('*', { count: 'exact', head: true })
+      .eq('seller_id', farmer.id)
+      .eq('status', 'delivered');
+
+    const { data: deliveredOrders } = await supabase
+      .from('orders')
+      .select('total_amount')
+      .eq('seller_id', farmer.id)
+      .eq('status', 'delivered');
+
+    const totalRevenue = deliveredOrders?.reduce((sum, order) => sum + parseFloat(order.total_amount || 0), 0) || 0;
+
+    const { data: recentOrders } = await supabase
+      .from('orders')
+      .select('*, buyer:profiles!orders_buyer_id_fkey(name)')
+      .eq('seller_id', farmer.id)
+      .order('created_at', { ascending: false })
       .limit(5);
 
     res.json({
@@ -338,8 +449,7 @@ router.get('/farmer/:email/stats', async (req, res) => {
     console.error('Get farmer stats error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch statistics',
-      error: error.message
+      message: 'Failed to fetch statistics: ' + error.message
     });
   }
 });

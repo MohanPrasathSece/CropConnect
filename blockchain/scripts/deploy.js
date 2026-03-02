@@ -1,128 +1,135 @@
+const hre = require("hardhat");
 const { ethers } = require("hardhat");
 const fs = require("fs");
 const path = require("path");
 
 async function main() {
-  console.log("🚀 Starting CropConnect smart contract deployment...");
+    console.log("🚀 Starting AgriTrack smart contract deployment...");
 
-  // Get the deployer account
-  const [deployer] = await ethers.getSigners();
-  console.log("📝 Deploying contracts with account:", deployer.address);
-  console.log("💰 Account balance:", ethers.utils.formatEther(await deployer.getBalance()), "ETH");
+    const [deployer] = await ethers.getSigners();
+    console.log("📝 Deploying contracts with account:", deployer.address);
 
-  // Deploy ProduceLedger contract
-  console.log("\n📦 Deploying ProduceLedger contract...");
-  const ProduceLedger = await ethers.getContractFactory("ProduceLedger");
-  const produceLedger = await ProduceLedger.deploy();
-  await produceLedger.deployed();
-  console.log("✅ ProduceLedger deployed to:", produceLedger.address);
+    // 1. Deploy ProduceLedger contract
+    console.log("\n📦 Deploying ProduceLedger...");
+    const ProduceLedger = await ethers.getContractFactory("ProduceLedger");
+    const produceLedger = await ProduceLedger.deploy();
+    await produceLedger.waitForDeployment();
+    const produceLedgerAddress = await produceLedger.getAddress();
+    console.log("✅ ProduceLedger deployed to:", produceLedgerAddress);
 
-  // Deploy PaymentManager contract
-  console.log("\n💳 Deploying PaymentManager contract...");
-  const PaymentManager = await ethers.getContractFactory("PaymentManager");
-  const paymentManager = await PaymentManager.deploy(produceLedger.address);
-  await paymentManager.deployed();
-  console.log("✅ PaymentManager deployed to:", paymentManager.address);
+    // 2. Deploy PaymentManager contract
+    console.log("\n📦 Deploying PaymentManager...");
+    const PaymentManager = await ethers.getContractFactory("PaymentManager");
+    const paymentManager = await PaymentManager.deploy(produceLedgerAddress);
+    await paymentManager.waitForDeployment();
+    const paymentManagerAddress = await paymentManager.getAddress();
+    console.log("✅ PaymentManager deployed to:", paymentManagerAddress);
 
-  // Grant initial roles
-  console.log("\n🔐 Setting up initial roles...");
-  
-  // Grant admin roles to deployer
-  await produceLedger.grantRole(await produceLedger.ADMIN_ROLE(), deployer.address);
-  await paymentManager.grantRole(await paymentManager.ADMIN_ROLE(), deployer.address);
-  console.log("✅ Admin roles granted to deployer");
+    // 3. Deploy SupplyChainTracker contract
+    console.log("\n📦 Deploying SupplyChainTracker...");
+    const SupplyChainTracker = await ethers.getContractFactory("SupplyChainTracker");
+    const supplyChainTracker = await SupplyChainTracker.deploy();
+    await supplyChainTracker.waitForDeployment();
+    const supplyChainTrackerAddress = await supplyChainTracker.getAddress();
+    console.log("✅ SupplyChainTracker deployed to:", supplyChainTrackerAddress);
 
-  // Create deployment info object
-  const deploymentInfo = {
-    network: hre.network.name,
-    deployer: deployer.address,
-    timestamp: new Date().toISOString(),
-    contracts: {
-      ProduceLedger: {
-        address: produceLedger.address,
-        transactionHash: produceLedger.deployTransaction.hash,
-        blockNumber: produceLedger.deployTransaction.blockNumber
-      },
-      PaymentManager: {
-        address: paymentManager.address,
-        transactionHash: paymentManager.deployTransaction.hash,
-        blockNumber: paymentManager.deployTransaction.blockNumber
-      }
-    },
-    gasUsed: {
-      ProduceLedger: (await produceLedger.deployTransaction.wait()).gasUsed.toString(),
-      PaymentManager: (await paymentManager.deployTransaction.wait()).gasUsed.toString()
-    }
-  };
+    // 4. Deploy OrderEscrow contract
+    console.log("\n📦 Deploying OrderEscrow...");
+    const OrderEscrow = await ethers.getContractFactory("OrderEscrow");
+    const orderEscrow = await OrderEscrow.deploy(deployer.address); // Platform wallet
+    await orderEscrow.waitForDeployment();
+    const orderEscrowAddress = await orderEscrow.getAddress();
+    console.log("✅ OrderEscrow deployed to:", orderEscrowAddress);
 
-  // Save deployment info to file
-  const deploymentsDir = path.join(__dirname, "../deployments");
-  if (!fs.existsSync(deploymentsDir)) {
-    fs.mkdirSync(deploymentsDir, { recursive: true });
-  }
+    // Grant roles to deployer for testing
+    console.log("\n🔐 Granting roles to deployer...");
+    const FARMER_ROLE = await produceLedger.FARMER_ROLE();
+    await produceLedger.grantRole(FARMER_ROLE, deployer.address);
+    console.log("✅ Granted FARMER_ROLE to deployer");
 
-  const deploymentFile = path.join(deploymentsDir, `${hre.network.name}.json`);
-  fs.writeFileSync(deploymentFile, JSON.stringify(deploymentInfo, null, 2));
-  console.log(`📄 Deployment info saved to: ${deploymentFile}`);
+    const SUPPLY_FARMER_ROLE = await supplyChainTracker.FARMER_ROLE();
+    await supplyChainTracker.grantRole(SUPPLY_FARMER_ROLE, deployer.address);
+    console.log("✅ Granted FARMER_ROLE on SupplyChainTracker to deployer");
 
-  // Generate contract addresses file for frontend
-  const contractAddresses = {
-    PRODUCE_LEDGER_ADDRESS: produceLedger.address,
-    PAYMENT_MANAGER_ADDRESS: paymentManager.address,
-    NETWORK_NAME: hre.network.name,
-    CHAIN_ID: (await ethers.provider.getNetwork()).chainId
-  };
+    // ---------------------------------------------------------
+    // EXPORT TO CLIENT & SERVER
+    // ---------------------------------------------------------
+    console.log("\n📄 Exporting contract data...");
+    const clientBlockchainDir = path.join(__dirname, "../../client/src/blockchain_data");
+    const serverBlockchainDir = path.join(__dirname, "../../server/blockchain");
 
-  const addressesFile = path.join(__dirname, "../contract-addresses.json");
-  fs.writeFileSync(addressesFile, JSON.stringify(contractAddresses, null, 2));
-  console.log(`📄 Contract addresses saved to: ${addressesFile}`);
+    [clientBlockchainDir, serverBlockchainDir].forEach(dir => {
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    });
 
-  // Generate ABI files for frontend
-  const artifactsDir = path.join(__dirname, "../artifacts/contracts");
-  const abiDir = path.join(__dirname, "../abi");
-  
-  if (!fs.existsSync(abiDir)) {
-    fs.mkdirSync(abiDir, { recursive: true });
-  }
+    // Save Contract Addresses
+    const contractAddresses = {
+        PRODUCE_LEDGER_ADDRESS: produceLedgerAddress,
+        PAYMENT_MANAGER_ADDRESS: paymentManagerAddress,
+        SUPPLY_CHAIN_TRACKER_ADDRESS: supplyChainTrackerAddress,
+        ORDER_ESCROW_ADDRESS: orderEscrowAddress,
+        NETWORK_NAME: hre.network.name,
+        DEPLOYED_AT: new Date().toISOString(),
+        DEPLOYER_ADDRESS: deployer.address
+    };
 
-  // Copy ProduceLedger ABI
-  const produceLedgerArtifact = JSON.parse(
-    fs.readFileSync(path.join(artifactsDir, "ProduceLedger.sol/ProduceLedger.json"))
-  );
-  fs.writeFileSync(
-    path.join(abiDir, "ProduceLedger.json"),
-    JSON.stringify(produceLedgerArtifact.abi, null, 2)
-  );
+    [clientBlockchainDir, serverBlockchainDir].forEach(dir => {
+        fs.writeFileSync(
+            path.join(dir, "contract-addresses.json"),
+            JSON.stringify(contractAddresses, null, 2)
+        );
+    });
 
-  // Copy PaymentManager ABI
-  const paymentManagerArtifact = JSON.parse(
-    fs.readFileSync(path.join(artifactsDir, "PaymentManager.sol/PaymentManager.json"))
-  );
-  fs.writeFileSync(
-    path.join(abiDir, "PaymentManager.json"),
-    JSON.stringify(paymentManagerArtifact.abi, null, 2)
-  );
+    // Save ABIs
+    const artifactsDir = path.join(__dirname, "../artifacts/contracts");
 
-  console.log("📄 ABI files generated in /abi directory");
+    const produceLedgerArtifact = JSON.parse(
+        fs.readFileSync(path.join(artifactsDir, "ProduceLedger.sol/ProduceLedger.json"))
+    );
+    const paymentManagerArtifact = JSON.parse(
+        fs.readFileSync(path.join(artifactsDir, "PaymentManager.sol/PaymentManager.json"))
+    );
+    const supplyChainTrackerArtifact = JSON.parse(
+        fs.readFileSync(path.join(artifactsDir, "SupplyChainTracker.sol/SupplyChainTracker.json"))
+    );
+    const orderEscrowArtifact = JSON.parse(
+        fs.readFileSync(path.join(artifactsDir, "OrderEscrow.sol/OrderEscrow.json"))
+    );
 
-  // Verification instructions
-  console.log("\n🔍 Contract Verification:");
-  console.log("To verify contracts on Etherscan, run:");
-  console.log(`npx hardhat verify --network ${hre.network.name} ${produceLedger.address}`);
-  console.log(`npx hardhat verify --network ${hre.network.name} ${paymentManager.address} "${produceLedger.address}"`);
+    [clientBlockchainDir, serverBlockchainDir].forEach(dir => {
+        fs.writeFileSync(
+            path.join(dir, "ProduceLedger.json"),
+            JSON.stringify(produceLedgerArtifact.abi, null, 2)
+        );
+        fs.writeFileSync(
+            path.join(dir, "PaymentManager.json"),
+            JSON.stringify(paymentManagerArtifact.abi, null, 2)
+        );
+        fs.writeFileSync(
+            path.join(dir, "SupplyChainTracker.json"),
+            JSON.stringify(supplyChainTrackerArtifact.abi, null, 2)
+        );
+        fs.writeFileSync(
+            path.join(dir, "OrderEscrow.json"),
+            JSON.stringify(orderEscrowArtifact.abi, null, 2)
+        );
+    });
 
-  console.log("\n🎉 Deployment completed successfully!");
-  console.log("\n📋 Summary:");
-  console.log(`Network: ${hre.network.name}`);
-  console.log(`ProduceLedger: ${produceLedger.address}`);
-  console.log(`PaymentManager: ${paymentManager.address}`);
-  console.log(`Deployer: ${deployer.address}`);
+    console.log("✅ ABI and Address files generated in:");
+    console.log("   - client/src/blockchain_data");
+    console.log("   - server/blockchain");
+
+    console.log("\n🎉 All contracts deployed successfully!");
+    console.log("\n📋 Contract Addresses:");
+    console.log("   ProduceLedger:", produceLedgerAddress);
+    console.log("   PaymentManager:", paymentManagerAddress);
+    console.log("   SupplyChainTracker:", supplyChainTrackerAddress);
+    console.log("   OrderEscrow:", orderEscrowAddress);
 }
 
-// Error handling
 main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error("❌ Deployment failed:", error);
-    process.exit(1);
-  });
+    .then(() => process.exit(0))
+    .catch((error) => {
+        console.error(error);
+        process.exit(1);
+    });

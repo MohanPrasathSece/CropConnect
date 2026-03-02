@@ -1,7 +1,6 @@
-const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const supabase = require('../config/supabase');
 
-// Protect routes - verify JWT token
+// Protect routes - verify Supabase session/token
 const protect = async (req, res, next) => {
   try {
     let token;
@@ -18,33 +17,44 @@ const protect = async (req, res, next) => {
       });
     }
 
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Get user from token (payload uses { userId } per routes/auth.js)
-    const user = await User.findById(decoded.userId).select('-password');
-    
-    if (!user) {
+    // Get user from Supabase using the token
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !authUser) {
       return res.status(401).json({
         success: false,
-        message: 'Invalid token. User not found.'
+        message: 'Invalid session or token.'
       });
     }
 
-    if (!user.isActive) {
+    // Get profile data from public.profiles
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(401).json({
+        success: false,
+        message: 'User profile not found.'
+      });
+    }
+
+    if (!profile.is_active) {
       return res.status(401).json({
         success: false,
         message: 'Account is deactivated.'
       });
     }
 
-    req.user = user;
+    req.user = profile;
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
     return res.status(401).json({
       success: false,
-      message: 'Invalid token.'
+      message: 'Authentication failed.'
     });
   }
 };
@@ -77,13 +87,20 @@ const optionalAuth = async (req, res, next) => {
 
     if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
       token = req.headers.authorization.split(' ')[1];
-      
+
       if (token) {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        const user = await User.findById(decoded.userId).select('-password');
-        
-        if (user && user.isActive) {
-          req.user = user;
+        const { data: { user: authUser } } = await supabase.auth.getUser(token);
+
+        if (authUser) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authUser.id)
+            .single();
+
+          if (profile && profile.is_active) {
+            req.user = profile;
+          }
         }
       }
     }

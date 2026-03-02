@@ -1,5 +1,5 @@
 const express = require('express');
-const User = require('../models/User');
+const supabase = require('../config/supabase');
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ const router = express.Router();
 router.put('/location', async (req, res) => {
   try {
     const { email, address } = req.body;
-    
+
     if (!email || !address) {
       return res.status(400).json({
         success: false,
@@ -17,13 +17,14 @@ router.put('/location', async (req, res) => {
       });
     }
 
-    const user = await User.findOneAndUpdate(
-      { email },
-      { address },
-      { new: true, runValidators: true }
-    ).select('-password');
+    const { data: user, error: updateError } = await supabase
+      .from('profiles')
+      .update({ address })
+      .eq('email', email)
+      .select()
+      .single();
 
-    if (!user) {
+    if (updateError || !user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
@@ -39,8 +40,7 @@ router.put('/location', async (req, res) => {
     console.error('Location update error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update location',
-      error: error.message
+      message: 'Failed to update location: ' + error.message
     });
   }
 });
@@ -51,7 +51,7 @@ router.put('/location', async (req, res) => {
 router.put('/profile', async (req, res) => {
   try {
     const { email, ...updateData } = req.body;
-    
+
     if (!email) {
       return res.status(400).json({
         success: false,
@@ -59,13 +59,14 @@ router.put('/profile', async (req, res) => {
       });
     }
 
-    const user = await User.findOneAndUpdate(
-      { email },
-      updateData,
-      { new: true, runValidators: true }
-    ).select('-password');
+    const { data: user, error: updateError } = await supabase
+      .from('profiles')
+      .update(updateData)
+      .eq('email', email)
+      .select()
+      .single();
 
-    if (!user) {
+    if (updateError || !user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
@@ -81,8 +82,7 @@ router.put('/profile', async (req, res) => {
     console.error('Profile update error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to update profile',
-      error: error.message
+      message: 'Failed to update profile: ' + error.message
     });
   }
 });
@@ -92,9 +92,13 @@ router.put('/profile', async (req, res) => {
 // @access  Public (simplified auth)
 router.get('/profile/:email', async (req, res) => {
   try {
-    const user = await User.findOne({ email: req.params.email }).select('-password');
-    
-    if (!user) {
+    const { data: user, error: fetchError } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('email', req.params.email)
+      .single();
+
+    if (fetchError || !user) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
@@ -108,8 +112,7 @@ router.get('/profile/:email', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: 'Failed to get user profile',
-      error: error.message
+      message: 'Failed to get user profile: ' + error.message
     });
   }
 });

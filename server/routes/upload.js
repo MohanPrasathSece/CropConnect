@@ -1,53 +1,55 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const { protect } = require('../middleware/auth');
+const fs = require('fs');
 
 const router = express.Router();
+
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, '../uploads/');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+    cb(null, 'image-' + uniqueSuffix + path.extname(file.originalname));
   }
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only JPEG, JPG and PNG are allowed.'), false);
+    cb(new Error('Invalid file type. Only JPEG, PNG and WebP are allowed.'), false);
   }
 };
 
 const upload = multer({
   storage,
   fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  }
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 });
 
 // @desc    Upload crop image
 // @route   POST /api/v1/upload/crop-image
-// @access  Private
-router.post('/crop-image', protect, upload.single('image'), (req, res) => {
+// @access  Public
+router.post('/crop-image', upload.single('image'), (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No file uploaded'
-      });
+      return res.status(400).json({ success: false, message: 'No file uploaded' });
     }
 
     const fileUrl = `/uploads/${req.file.filename}`;
+    console.log(`📷 Image uploaded: ${req.file.filename}`);
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Image uploaded successfully',
       fileUrl,
@@ -55,11 +57,8 @@ router.post('/crop-image', protect, upload.single('image'), (req, res) => {
     });
 
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'File upload failed',
-      error: error.message
-    });
+    console.error('Upload error:', error);
+    return res.status(500).json({ success: false, message: 'File upload failed: ' + error.message });
   }
 });
 

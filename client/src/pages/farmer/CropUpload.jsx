@@ -1,286 +1,506 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { Camera, Upload, ArrowLeft, CheckCircle } from 'lucide-react';
-import axios from 'axios';
+import {
+  Upload, Camera, ArrowLeft, CheckCircle, ShieldCheck, Loader2,
+  TrendingUp, AlertTriangle, Star, Sparkles, Info, ChevronDown
+} from 'lucide-react';
+import { cropApi, aiQualityApi, uploadApi } from '../../utils/api';
+
+const gradeColors = {
+  Premium: 'emerald',
+  A: 'emerald',
+  B: 'amber',
+  C: 'orange',
+  Rejected: 'red'
+};
 
 const CropUpload = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    quantity: '',
-    unit: 'kg',
-    pricePerUnit: ''
-  });
+  const [statusMessage, setStatusMessage] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [qualityReport, setQualityReport] = useState(null);
   const [images, setImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [showFullReport, setShowFullReport] = useState(false);
 
-  // Top 7 crops in Odisha (based on agricultural data)
-  const odishaCrops = [
-    { value: 'rice', label: '🌾 Rice (Paddy)', category: 'grains' },
-    { value: 'wheat', label: '🌾 Wheat', category: 'grains' },
-    { value: 'maize', label: '🌽 Maize (Corn)', category: 'grains' },
-    { value: 'sugarcane', label: '🎋 Sugarcane', category: 'cash_crops' },
-    { value: 'groundnut', label: '🥜 Groundnut', category: 'pulses' },
-    { value: 'cotton', label: '🌱 Cotton', category: 'cash_crops' },
-    { value: 'turmeric', label: '🟡 Turmeric', category: 'spices' }
-  ];
+  const [formData, setFormData] = useState({
+    name: '',
+    variety: '',
+    quantity: '',
+    unit: 'kg',
+    pricePerUnit: '',
+    category: 'grains'
+  });
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleImageChange = (e) => {
     const files = Array.from(e.target.files);
+    if (files.length === 0) return;
     setImages(files);
-    
-    // Create preview URLs
-    const previews = files.map(file => URL.createObjectURL(file));
-    setImagePreviews(previews);
+    setImagePreviews(files.map(f => URL.createObjectURL(f)));
+    setQualityReport(null);
+    // Auto trigger quality check when images are selected
+    triggerQualityCheck(files);
   };
 
-  const removeImage = (index) => {
-    const newImages = images.filter((_, i) => i !== index);
-    const newPreviews = imagePreviews.filter((_, i) => i !== index);
-    setImages(newImages);
-    setImagePreviews(newPreviews);
+  const triggerQualityCheck = async (files, overrideFormData) => {
+    const data = overrideFormData || formData;
+    try {
+      setIsVerifying(true);
+      setStatusMessage('Analysing your produce...');
+
+      const payload = new FormData();
+      files.forEach(file => payload.append('images', file));
+      payload.append('cropName', data.name || 'Produce');
+      payload.append('cropType', data.name || 'agricultural produce');
+      payload.append('category', data.category || 'grains');
+      if (data.quantity) payload.append('quantity', data.quantity);
+      if (data.unit) payload.append('unit', data.unit);
+      if (data.pricePerUnit) payload.append('pricePerUnit', data.pricePerUnit);
+
+      const res = await aiQualityApi.analyze(payload);
+
+      if (res.data?.success) {
+        const analysis = res.data.analysis;
+        setQualityReport(analysis);
+        // Auto-fill price if not set
+        if (!data.pricePerUnit && analysis.marketRecommendation?.suggestedPrice) {
+          setFormData(prev => ({
+            ...prev,
+            pricePerUnit: analysis.marketRecommendation.suggestedPrice
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Quality check error:', error);
+    } finally {
+      setIsVerifying(false);
+      setStatusMessage('');
+    }
   };
+
+  // Re-run quality check when form details change (if images already uploaded)
+  const [analysisTimer, setAnalysisTimer] = useState(null);
+  useEffect(() => {
+    if (images.length > 0 && (formData.name || formData.pricePerUnit)) {
+      clearTimeout(analysisTimer);
+      const t = setTimeout(() => triggerQualityCheck(images), 1500);
+      setAnalysisTimer(t);
+    }
+    return () => clearTimeout(analysisTimer);
+  }, [formData.name, formData.pricePerUnit, formData.quantity, formData.category]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     if (!formData.name || !formData.quantity) {
-      alert('Please fill all required fields');
+      alert('Please fill in all required fields.');
       return;
     }
-    
+
     setLoading(true);
-    
+    setStatusMessage('Saving harvest details...');
+
     try {
-      // For now, send as JSON (image upload will be implemented later)
-      const cropData = {
+      let imageUrls = [];
+      if (images.length > 0) {
+        setStatusMessage('Uploading photos...');
+        for (const image of images) {
+          const uploadPayload = new FormData();
+          uploadPayload.append('image', image);
+          const uploadResponse = await uploadApi.uploadImage(uploadPayload);
+          if (uploadResponse.data.success) {
+            imageUrls.push(uploadResponse.data.fileUrl);
+          }
+        }
+      }
+
+      setStatusMessage('Listing on marketplace...');
+      const postData = {
         name: formData.name,
+        variety: formData.variety || formData.name,
+        category: formData.category,
         quantity: formData.quantity,
         unit: formData.unit,
-        pricePerUnit: formData.pricePerUnit || '0',
-        farmerEmail: user.email
+        pricePerUnit: formData.pricePerUnit,
+        farmerEmail: user.email,
+        images: imageUrls,
+        ai_analysis: qualityReport
       };
 
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/crops/upload`, cropData, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const { data: responseData } = await cropApi.upload(postData);
+      if (!responseData.success) throw new Error(responseData.message);
 
-      if (response.data.success) {
-        setSuccess(true);
-        setTimeout(() => {
-          navigate('/farmer/crops');
-        }, 2000);
-      }
+      setSuccess(true);
+      setTimeout(() => navigate('/farmer/crops'), 2500);
     } catch (error) {
       console.error('Upload failed:', error);
-      alert(error.response?.data?.message || 'Upload failed');
+      alert(error.message || 'Harvest registration failed. Please try again.');
     } finally {
       setLoading(false);
+      setStatusMessage('');
     }
   };
 
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-12 h-12 text-green-600" />
+      <div className="min-h-[70vh] flex items-center justify-center p-6">
+        <div className="text-center space-y-4 animate-in zoom-in duration-300">
+          <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
+            <CheckCircle className="w-10 h-10 text-emerald-600" />
           </div>
-          <h1 className="text-3xl font-bold text-green-600 mb-4">Crop Uploaded Successfully! 🎉</h1>
-          <p className="text-gray-600 text-lg mb-6">Your crop has been added to the marketplace</p>
-          <div className="animate-pulse text-gray-500">Redirecting to dashboard...</div>
+          <h1 className="text-xl font-bold text-slate-800">Harvest Listed!</h1>
+          <p className="text-sm text-slate-500">Your produce is now live on the marketplace.</p>
+          <div className="w-6 h-6 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mt-2" />
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-2xl mx-auto">
-          {/* Header */}
-          <div className="flex items-center mb-6 sm:mb-8">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="mr-4 p-2 hover:bg-white rounded-full transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-600" />
-            </button>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-green-600 to-green-800 bg-clip-text text-transparent">
-                Upload Your Crop 🌾
-              </h1>
-              <p className="text-gray-600 mt-1 text-sm sm:text-base">Add photos, select crop type, and set quantity</p>
-            </div>
-          </div>
+  const grade = qualityReport?.overallGrade;
+  const gradeColor = gradeColors[grade] || 'emerald';
 
-          {/* Upload Form */}
-          <div className="bg-white rounded-3xl shadow-xl p-4 sm:p-8">
-            <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
-              {/* Image Upload Section */}
-              <div>
-                <label className="block text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">
-                  📸 Upload Crop Photos *
-                </label>
-                <div className="border-2 border-dashed border-green-300 rounded-2xl p-6 sm:p-8 text-center hover:border-green-400 transition-colors">
-                  <input
-                    type="file"
-                    multiple
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="hidden"
-                    id="image-upload"
-                    max="3"
-                  />
-                  <label htmlFor="image-upload" className="cursor-pointer">
-                    <div className="flex flex-col items-center">
-                      <Camera className="w-10 h-10 sm:w-12 sm:h-12 text-green-500 mb-3 sm:mb-4" />
-                      <p className="text-base sm:text-lg font-medium text-gray-700 mb-1 sm:mb-2">
-                        Click to upload photos
-                      </p>
-                      <p className="text-xs sm:text-sm text-gray-500">
-                        Upload up to 3 clear photos of your crop
-                      </p>
-                    </div>
-                  </label>
+  return (
+    <div className="w-full max-w-3xl mx-auto space-y-6 pb-20 animate-in fade-in duration-500">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={() => navigate('/farmer/crops')}
+          className="p-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all shadow-sm group"
+        >
+          <ArrowLeft className="w-4 h-4 text-slate-500 group-hover:-translate-x-1 transition-transform" />
+        </button>
+        <div>
+          <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Add Harvest</h1>
+          <p className="text-sm text-slate-500">Upload photos and fill in details — quality is checked automatically.</p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
+
+          {/* ── Step 1: Images ── */}
+          <section className="space-y-4">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">1</div>
+              <h2 className="text-xs font-bold text-slate-700 uppercase tracking-widest">Upload Produce Photos</h2>
+            </div>
+
+            <div className={`relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all group
+              ${images.length > 0 ? 'border-emerald-300 bg-emerald-50/30' : 'border-slate-200 bg-slate-50/50 hover:border-emerald-300 hover:bg-emerald-50/20'}`}>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleImageChange}
+                className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                id="image-upload"
+              />
+              <div className="flex flex-col items-center gap-2 pointer-events-none">
+                <div className={`w-14 h-14 rounded-xl flex items-center justify-center border shadow-sm transition-colors
+                  ${images.length > 0 ? 'bg-emerald-100 border-emerald-200' : 'bg-white border-slate-100 group-hover:bg-emerald-50'}`}>
+                  {isVerifying
+                    ? <Loader2 className="w-6 h-6 text-emerald-500 animate-spin" />
+                    : <Camera className={`w-6 h-6 ${images.length > 0 ? 'text-emerald-600' : 'text-slate-400'}`} />
+                  }
+                </div>
+                <p className="text-sm font-semibold text-slate-800">
+                  {images.length > 0 ? `${images.length} Photo(s) Ready` : 'Click to upload photos'}
+                </p>
+                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">
+                  {isVerifying ? 'Checking quality with Gemini...' : 'Up to 5 images • JPG, PNG'}
+                </p>
+              </div>
+            </div>
+
+            {/* Image previews */}
+            {imagePreviews.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                {imagePreviews.map((preview, idx) => (
+                  <div key={idx} className="relative w-20 h-20 flex-shrink-0 rounded-lg border border-slate-200 overflow-hidden shadow-sm group/img">
+                    <img src={preview} alt="preview" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ni = images.filter((_, i) => i !== idx);
+                        const np = imagePreviews.filter((_, i) => i !== idx);
+                        setImages(ni);
+                        setImagePreviews(np);
+                        if (ni.length === 0) setQualityReport(null);
+                      }}
+                      className="absolute top-1 right-1 w-5 h-5 bg-slate-900/70 backdrop-blur-sm text-white rounded flex items-center justify-center text-xs opacity-0 group-hover/img:opacity-100 transition-opacity"
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Quality Report Card */}
+            {qualityReport && (
+              <div className={`rounded-xl border overflow-hidden animate-in slide-in-from-top-2 duration-300
+                bg-${gradeColor}-50 border-${gradeColor}-200`}>
+                {/* Summary bar */}
+                <div className={`flex items-center justify-between px-4 py-3 bg-${gradeColor}-600`}>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-white" />
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">Quality Verified</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-white font-bold text-sm">Grade {grade}</span>
+                    <span className={`bg-white/25 text-white text-[10px] font-bold px-2 py-0.5 rounded-full`}>
+                      {qualityReport.qualityScore}/100
+                    </span>
+                  </div>
                 </div>
 
-                {/* Image Previews */}
-                {imagePreviews.length > 0 && (
-                  <div className="grid grid-cols-3 gap-4 mt-4">
-                    {imagePreviews.map((preview, index) => (
-                      <div key={index} className="relative">
-                        <img
-                          src={preview}
-                          alt={`Preview ${index + 1}`}
-                          className="w-full h-24 object-cover rounded-lg"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(index)}
-                          className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600"
-                        >
-                          ×
-                        </button>
+                {/* Summary */}
+                <div className="px-4 py-3">
+                  <p className="text-xs text-slate-700 leading-relaxed">{qualityReport.summary}</p>
+                </div>
+
+                {/* Key stats */}
+                <div className="px-4 pb-3 grid grid-cols-3 gap-3">
+                  <div className="bg-white rounded-lg p-2.5 border border-slate-100 text-center">
+                    <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Colour</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5">{qualityReport.visualInspection?.color}</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-2.5 border border-slate-100 text-center">
+                    <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Purity</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5">{qualityReport.purityLevel}%</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-2.5 border border-slate-100 text-center">
+                    <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Demand</p>
+                    <p className="text-xs font-bold text-slate-800 mt-0.5">{qualityReport.marketRecommendation?.marketDemand}</p>
+                  </div>
+                </div>
+
+                {/* Price feedback */}
+                {qualityReport.marketRecommendation?.priceFeedback && (
+                  <div className="px-4 pb-3">
+                    <div className="flex items-start gap-2 bg-white border border-slate-100 rounded-lg p-3">
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-600 mt-0.5 shrink-0" />
+                      <p className="text-[11px] text-slate-600">{qualityReport.marketRecommendation.priceFeedback}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Toggle full report */}
+                <button
+                  type="button"
+                  onClick={() => setShowFullReport(v => !v)}
+                  className="w-full px-4 py-2.5 bg-white border-t border-slate-100 flex items-center justify-center gap-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider hover:text-slate-700 transition-colors"
+                >
+                  {showFullReport ? 'Hide Details' : 'View Full Report'}
+                  <ChevronDown className={`w-3 h-3 transition-transform ${showFullReport ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Full report */}
+                {showFullReport && (
+                  <div className="px-4 pb-4 space-y-3 border-t border-slate-100 bg-white">
+                    {/* Defects */}
+                    {qualityReport.defects?.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Detected Issues</p>
+                        {qualityReport.defects.map((d, i) => (
+                          <div key={i} className="flex justify-between items-center py-1.5 border-b border-slate-50 last:border-0">
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="w-3 h-3 text-amber-500" />
+                              <span className="text-xs text-slate-700">{d.type}</span>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full
+                              ${d.severity === 'High' ? 'bg-red-100 text-red-600' :
+                                d.severity === 'Medium' ? 'bg-amber-100 text-amber-600' :
+                                  'bg-slate-100 text-slate-500'}`}>
+                              {d.severity} · {d.affectedPercentage}%
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
+
+                    {/* Tips */}
+                    {qualityReport.improvementTips?.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Tips to Improve</p>
+                        {qualityReport.improvementTips.map((tip, i) => (
+                          <div key={i} className="flex items-start gap-2 py-1">
+                            <Sparkles className="w-3 h-3 text-emerald-500 mt-0.5 shrink-0" />
+                            <p className="text-xs text-slate-600">{tip}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Best buyers */}
+                    {qualityReport.marketRecommendation?.bestBuyersFor?.length > 0 && (
+                      <div className="mt-3">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Best Buyers For This Grade</p>
+                        <div className="flex flex-wrap gap-2">
+                          {qualityReport.marketRecommendation.bestBuyersFor.map((b, i) => (
+                            <span key={i} className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100 px-2.5 py-1 rounded-full">
+                              {b}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
+            )}
+          </section>
 
-              {/* Crop Selection */}
-              <div>
-                <label className="block text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">
-                  🌾 Select Crop Type *
-                </label>
-                <select
+          {/* ── Step 2: Details ── */}
+          <section className="space-y-5">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-full bg-slate-900 text-white flex items-center justify-center text-[10px] font-bold">2</div>
+              <h2 className="text-xs font-bold text-slate-700 uppercase tracking-widest">Produce Details</h2>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Crop name */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Crop Name *</label>
+                <input
+                  type="text"
                   name="name"
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 sm:py-4 text-base sm:text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  placeholder="e.g. Paddy, Wheat, Tomato"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/5 transition-all"
+                />
+              </div>
+
+              {/* Category */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Category</label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 focus:bg-white focus:outline-none focus:border-emerald-500 transition-all appearance-none"
                 >
-                  <option value="">Choose your crop...</option>
-                  {odishaCrops.map((crop) => (
-                    <option key={crop.value} value={crop.value}>
-                      {crop.label}
-                    </option>
-                  ))}
+                  <option value="grains">Grains & Cereals</option>
+                  <option value="vegetables">Vegetables</option>
+                  <option value="fruits">Fruits</option>
+                  <option value="pulses">Pulses & Legumes</option>
+                  <option value="spices">Spices & Herbs</option>
+                  <option value="cash_crops">Cash Crops</option>
                 </select>
               </div>
 
-              {/* Quantity Section */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                <div>
-                  <label className="block text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">
-                    ⚖️ Quantity *
-                  </label>
+              {/* Variety */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Variety (Optional)</label>
+                <input
+                  type="text"
+                  name="variety"
+                  value={formData.variety}
+                  onChange={handleChange}
+                  placeholder="e.g. Basmati, IR-36"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-500 transition-all"
+                />
+              </div>
+
+              {/* Quantity */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Quantity *</label>
+                <div className="flex gap-2">
                   <input
                     type="number"
                     name="quantity"
                     required
-                    min="0"
-                    step="0.1"
                     value={formData.quantity}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 sm:py-4 text-base sm:text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Enter quantity"
+                    placeholder="0"
+                    min="0"
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-800 focus:bg-white focus:outline-none focus:border-emerald-500 transition-all font-medium"
                   />
-                </div>
-                
-                <div>
-                  <label className="block text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">
-                    📦 Unit
-                  </label>
                   <select
                     name="unit"
                     value={formData.unit}
                     onChange={handleChange}
-                    className="w-full px-4 py-3 sm:py-4 text-base sm:text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    className="w-24 px-2 py-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 focus:bg-white focus:outline-none focus:border-emerald-500 transition-all font-bold text-center appearance-none"
                   >
-                    <option value="kg">Kilograms (kg)</option>
-                    <option value="quintal">Quintal</option>
-                    <option value="tons">Tons</option>
-                    <option value="bags">Bags</option>
+                    <option value="kg">kg</option>
+                    <option value="quintal">quintal</option>
+                    <option value="tons">tons</option>
                   </select>
                 </div>
               </div>
 
-              {/* Price (Optional) */}
-              <div>
-                <label className="block text-base sm:text-lg font-semibold text-gray-800 mb-3 sm:mb-4">
-                  💰 Price per {formData.unit || 'unit'} (₹) <span className="text-sm font-normal text-gray-500">(Optional)</span>
+              {/* Price */}
+              <div className="space-y-1.5 md:col-span-2">
+                <label className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                  <span>Price Per Unit (₹)</span>
+                  {qualityReport?.marketRecommendation?.suggestedPrice && (
+                    <button
+                      type="button"
+                      className="text-emerald-600 flex items-center gap-1"
+                      onClick={() => setFormData(prev => ({
+                        ...prev,
+                        pricePerUnit: qualityReport.marketRecommendation.suggestedPrice
+                      }))}
+                    >
+                      <Star className="w-2.5 h-2.5" />
+                      Use suggested ₹{qualityReport.marketRecommendation.suggestedPrice}
+                    </button>
+                  )}
                 </label>
                 <input
                   type="number"
                   name="pricePerUnit"
-                  min="0"
-                  step="0.01"
                   value={formData.pricePerUnit}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 sm:py-4 text-base sm:text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  placeholder="Enter price (leave empty for market rate)"
+                  placeholder="Set your asking price"
+                  min="0"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg text-base font-bold text-emerald-700 focus:bg-white focus:outline-none focus:border-emerald-500 transition-all"
                 />
               </div>
+            </div>
+          </section>
 
-
-              {/* Submit Button */}
-              <div className="pt-4 sm:pt-6">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white text-base sm:text-xl font-bold py-3 sm:py-4 px-6 sm:px-8 rounded-2xl hover:from-green-600 hover:to-green-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-xl"
-                >
-                  {loading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-5 w-5 sm:h-6 sm:w-6 border-b-2 border-white mr-3"></div>
-                      Uploading...
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center">
-                      <Upload className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" />
-                      Upload Crop to Marketplace
-                    </div>
-                  )}
-                </button>
+          {/* ── Submit ── */}
+          <div className="pt-4 border-t border-slate-100">
+            {images.length === 0 && (
+              <div className="flex items-center gap-2 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3 mb-4">
+                <Info className="w-4 h-4 text-amber-500 shrink-0" />
+                <p className="text-xs text-amber-700">Upload at least one photo to receive a quality grade before listing.</p>
               </div>
-            </form>
+            )}
+            <button
+              type="submit"
+              disabled={loading || isVerifying}
+              className="w-full py-4 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase tracking-widest hover:bg-slate-800 disabled:opacity-50 transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-3"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {statusMessage || 'Processing...'}
+                </>
+              ) : isVerifying ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Checking quality...
+                </>
+              ) : (
+                'Save and List Harvest'
+              )}
+            </button>
+            <p className="text-center text-[9px] text-slate-400 mt-3 font-medium uppercase tracking-wider">
+              Quality verified · Secure listing
+            </p>
           </div>
-        </div>
+
+        </form>
       </div>
     </div>
   );

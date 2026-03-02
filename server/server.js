@@ -1,5 +1,4 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -19,6 +18,11 @@ const paymentRoutes = require('./routes/payments');
 const qrRoutes = require('./routes/qr');
 const analyticsRoutes = require('./routes/analytics');
 const uploadRoutes = require('./routes/upload');
+const aiQualityRoutes = require('./routes/ai-quality');
+const farmerRoutes = require('./routes/farmer');
+const retailerRoutes = require('./routes/retailer');
+const notificationRoutes = require('./routes/notifications');
+const mlRoutes = require('./routes/ml');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -26,19 +30,35 @@ const notFound = require('./middleware/notFound');
 
 const app = express();
 
+// Trust proxy for express-rate-limit
+app.set('trust proxy', 1);
+
 // Security middleware
 app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      scriptSrc: ["'self'"],
-      connectSrc: ["'self'", "ws:", "wss:"]
+      imgSrc: ["'self'", "data:", "https:", "*"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      connectSrc: ["'self'", "ws:", "wss:", "http://localhost:5000", "http://127.0.0.1:5000"]
     }
   }
 }));
+
+// Ensure upload directories exist
+const fs = require('fs');
+const path = require('path');
+const uploadDirs = ['uploads', 'uploads/quality-checks', 'uploads/quality-ml'];
+uploadDirs.forEach(dir => {
+  const fullPath = path.join(__dirname, dir);
+  if (!fs.existsSync(fullPath)) {
+    fs.mkdirSync(fullPath, { recursive: true });
+    console.log(`Created directory: ${dir}`);
+  }
+});
 
 // CORS configuration
 const corsOptions = {
@@ -74,8 +94,11 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('combined'));
 }
 
-// Static files
-app.use('/uploads', express.static('uploads'));
+// Static files - serve uploads with cross-origin headers so frontend can display images
+app.use('/uploads', (req, res, next) => {
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  next();
+}, express.static('uploads'));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -100,11 +123,16 @@ app.use(`/api/${apiVersion}/payments`, paymentRoutes);
 app.use(`/api/${apiVersion}/qr`, qrRoutes);
 app.use(`/api/${apiVersion}/analytics`, analyticsRoutes);
 app.use(`/api/${apiVersion}/upload`, uploadRoutes);
+app.use(`/api/${apiVersion}/ai-quality`, aiQualityRoutes);
+app.use(`/api/${apiVersion}/farmer`, farmerRoutes);
+app.use(`/api/${apiVersion}/retailer`, retailerRoutes);
+app.use(`/api/${apiVersion}/notifications`, notificationRoutes);
+app.use(`/api/${apiVersion}/ml`, mlRoutes);
 
 // Welcome route
 app.get('/', (req, res) => {
   res.json({
-    message: '🌾 Welcome to CropConnect API',
+    message: '🌾 Welcome to CropChain API',
     version: '1.0.0',
     documentation: '/api/docs',
     health: '/health'
@@ -115,33 +143,31 @@ app.get('/', (req, res) => {
 app.use(notFound);
 app.use(errorHandler);
 
+const supabase = require('./config/supabase');
+
+// ... imports remain the same ...
+
 // Database connection
 const connectDB = async () => {
   try {
-    const mongoURI = process.env.NODE_ENV === 'test' 
-      ? process.env.MONGODB_TEST_URI 
-      : process.env.MONGODB_URI;
-    
-    const conn = await mongoose.connect(mongoURI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    const { data, error } = await supabase.from('profiles').select('id').limit(1);
 
-    console.log(`📊 MongoDB Connected: ${conn.connection.host}`);
+    if (error && error.code !== 'PGRST116') { // PGRST116 is 'no rows found', which is fine
+      throw error;
+    }
+
+    console.log('📊 Supabase Connected and Verified');
   } catch (error) {
     console.error('❌ Database connection error:', error.message);
-    process.exit(1);
+    // In production you might want to exit, but in dev we might just log
+    // process.exit(1);
   }
 };
 
 // Graceful shutdown
 const gracefulShutdown = () => {
   console.log('\n🛑 Received shutdown signal, closing server gracefully...');
-  
-  mongoose.connection.close(() => {
-    console.log('📊 MongoDB connection closed');
-    process.exit(0);
-  });
+  process.exit(0);
 };
 
 process.on('SIGTERM', gracefulShutdown);
@@ -153,9 +179,9 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     await connectDB();
-    
+
     const server = app.listen(PORT, () => {
-      console.log(`🚀 CropConnect Server running on port ${PORT}`);
+      console.log(`🚀 CropChain Server running on port ${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
       console.log(`📡 API Version: ${apiVersion}`);
       console.log(`🔗 Health Check: http://localhost:${PORT}/health`);
