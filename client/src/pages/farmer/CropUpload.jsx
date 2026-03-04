@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import {
   Upload, Camera, ArrowLeft, CheckCircle, ShieldCheck, Loader2,
@@ -17,7 +17,11 @@ const gradeColors = {
 
 const CropUpload = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const navigate = useNavigate();
+
+  const editCrop = location.state?.editCrop;
+  const isEditMode = Boolean(editCrop?.id);
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -26,6 +30,7 @@ const CropUpload = () => {
   const [qualityReport, setQualityReport] = useState(null);
   const [images, setImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
+  const [existingImageUrls, setExistingImageUrls] = useState([]);
   const [showFullReport, setShowFullReport] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -37,6 +42,29 @@ const CropUpload = () => {
     category: 'grains'
   });
 
+  useEffect(() => {
+    if (!isEditMode) return;
+
+    const imagesFromCrop = Array.isArray(editCrop?.images) ? editCrop.images : [];
+    const urls = imagesFromCrop
+      .map((img) => (typeof img === 'string' ? img : img?.url))
+      .filter(Boolean);
+
+    setExistingImageUrls(urls);
+    setImagePreviews(urls);
+    setImages([]);
+    setQualityReport(editCrop?.ai_analysis || editCrop?.aiAnalysis || null);
+
+    setFormData({
+      name: editCrop?.name || '',
+      variety: editCrop?.variety || '',
+      quantity: editCrop?.quantity ?? '',
+      unit: editCrop?.unit || 'kg',
+      pricePerUnit: editCrop?.price_per_unit ?? editCrop?.pricePerUnit ?? '',
+      category: editCrop?.category || 'grains'
+    });
+  }, [isEditMode, editCrop]);
+
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
@@ -47,6 +75,7 @@ const CropUpload = () => {
     setImages(files);
     setImagePreviews(files.map(f => URL.createObjectURL(f)));
     setQualityReport(null);
+    setExistingImageUrls([]);
     // Auto trigger quality check when images are selected
     triggerQualityCheck(files);
   };
@@ -90,13 +119,14 @@ const CropUpload = () => {
   // Re-run quality check when form details change (if images already uploaded)
   const [analysisTimer, setAnalysisTimer] = useState(null);
   useEffect(() => {
+    if (isEditMode) return;
     if (images.length > 0 && (formData.name || formData.pricePerUnit)) {
       clearTimeout(analysisTimer);
       const t = setTimeout(() => triggerQualityCheck(images), 1500);
       setAnalysisTimer(t);
     }
     return () => clearTimeout(analysisTimer);
-  }, [formData.name, formData.pricePerUnit, formData.quantity, formData.category]);
+  }, [formData.name, formData.pricePerUnit, formData.quantity, formData.category, images.length, isEditMode]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -120,23 +150,37 @@ const CropUpload = () => {
             imageUrls.push(uploadResponse.data.fileUrl);
           }
         }
+      } else if (isEditMode && existingImageUrls.length > 0) {
+        imageUrls = existingImageUrls;
       }
 
-      setStatusMessage('Listing on marketplace...');
-      const postData = {
+      const payload = {
         name: formData.name,
         variety: formData.variety || formData.name,
         category: formData.category,
         quantity: formData.quantity,
         unit: formData.unit,
-        pricePerUnit: formData.pricePerUnit,
-        farmerEmail: user.email,
+        price_per_unit: formData.pricePerUnit,
         images: imageUrls,
         ai_analysis: qualityReport
       };
 
-      const { data: responseData } = await cropApi.upload(postData);
-      if (!responseData.success) throw new Error(responseData.message);
+      if (isEditMode) {
+        setStatusMessage('Saving changes...');
+        const { data: responseData } = await cropApi.update(editCrop.id, payload);
+        if (!responseData.success) throw new Error(responseData.message);
+      } else {
+        setStatusMessage('Listing on marketplace...');
+        const postData = {
+          ...payload,
+          pricePerUnit: formData.pricePerUnit,
+          farmerEmail: user.email,
+        };
+        delete postData.price_per_unit;
+
+        const { data: responseData } = await cropApi.upload(postData);
+        if (!responseData.success) throw new Error(responseData.message);
+      }
 
       setSuccess(true);
       setTimeout(() => navigate('/farmer/crops'), 2500);
@@ -178,8 +222,8 @@ const CropUpload = () => {
           <ArrowLeft className="w-4 h-4 text-slate-500 group-hover:-translate-x-1 transition-transform" />
         </button>
         <div>
-          <h1 className="text-xl font-semibold text-slate-900 tracking-tight">Add Harvest</h1>
-          <p className="text-sm text-slate-500">Upload photos and fill in details — quality is checked automatically.</p>
+          <h1 className="text-xl font-semibold text-slate-900 tracking-tight">{isEditMode ? 'Edit Harvest' : 'Add Harvest'}</h1>
+          <p className="text-sm text-slate-500">{isEditMode ? 'Update your listing details and save changes.' : 'Upload photos and fill in details — quality is checked automatically.'}</p>
         </div>
       </div>
 

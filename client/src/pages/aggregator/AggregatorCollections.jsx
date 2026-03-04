@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { AggregatorLayout } from "../../components/aggregator/AggregatorLayout";
 import { StatusBadge } from "../../components/farmer/StatusBadge";
 import { MapPin, QrCode, Eye, X, Wheat, Search, Filter, Loader2, Package, Calendar, User, ShieldCheck } from "lucide-react";
 import { formatLocation } from "../../utils/format";
@@ -43,32 +42,29 @@ export default function AggregatorCollections() {
 
     if (loading) {
         return (
-            <AggregatorLayout>
-                <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-                    <Loader2 className="w-12 h-12 text-primary animate-spin" />
-                    <p className="text-slate-500 font-black uppercase tracking-widest text-xs">Querying Regional Ledger...</p>
-                </div>
-            </AggregatorLayout>
+            <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+                <p className="text-slate-500 font-black uppercase tracking-widest text-xs">Querying Regional Ledger...</p>
+            </div>
         );
     }
 
     return (
-        <AggregatorLayout>
-            <div className="space-y-10 animate-in fade-in duration-500">
-                {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
-                    <div>
-                        <h1 className="text-4xl font-black text-slate-800 tracking-tight">Regional Cargo Ledger</h1>
-                        <p className="text-slate-500 font-bold mt-2 text-lg">History of all synchronized farmer pickups and intake samples.</p>
-                    </div>
-                    <button
-                        onClick={() => navigate('/aggregator/scan-qr')}
-                        className="inline-flex items-center justify-center gap-4 rounded-3xl bg-primary px-10 py-5 text-sm font-black text-white uppercase tracking-[0.2em] transition-all hover:bg-primary/90 shadow-2xl shadow-primary/30 active:scale-95"
-                    >
-                        <QrCode className="h-5 w-5" />
-                        Initiate Intake
-                    </button>
+        <div className="space-y-10 animate-in fade-in duration-500">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+                <div>
+                    <h1 className="text-4xl font-black text-slate-800 tracking-tight">Regional Cargo Ledger</h1>
+                    <p className="text-slate-500 font-bold mt-2 text-lg">History of all synchronized farmer pickups and intake samples.</p>
                 </div>
+                <button
+                    onClick={() => navigate('/aggregator/scan-qr')}
+                    className="inline-flex items-center justify-center gap-4 rounded-3xl bg-primary px-10 py-5 text-sm font-black text-white uppercase tracking-[0.2em] transition-all hover:bg-primary/90 shadow-2xl shadow-primary/30 active:scale-95"
+                >
+                    <QrCode className="h-5 w-5" />
+                    Initiate Intake
+                </button>
+            </div>
 
                 {/* Filters */}
                 <div className="flex flex-col sm:flex-row gap-6">
@@ -233,7 +229,6 @@ export default function AggregatorCollections() {
                         </div>
                     </div>
                 )}
-            </div>
-        </AggregatorLayout>
+        </div>
     );
 }

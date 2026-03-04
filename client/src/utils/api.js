@@ -84,6 +84,7 @@ export const retailerApi = {
 export const cropApi = {
     upload: (data) => api.post('/crops/upload', data),
     update: (id, data) => api.put(`/crops/${id}`, data),
+    delete: (id) => api.delete(`/crops/${id}`),
     getMarketplace: (params) => api.get('/crops/marketplace', { params }),
     getDetails: (id) => api.get(`/crops/${id}`),
 };
@@ -120,6 +121,13 @@ export const uploadApi = {
             'Content-Type': 'multipart/form-data'
         }
     }),
+};
+
+export const pricingApi = {
+    getRealTimePrice: (crop, location) => api.get(`/pricing/real-time/${crop}?location=${encodeURIComponent(location)}`),
+    getMarketData: (location) => api.get(`/pricing/market-data?location=${encodeURIComponent(location)}`),
+    getHistoricalData: (crop, days) => api.get(`/pricing/historical/${crop}?days=${days}`),
+    trainModel: () => api.post('/pricing/train-model'),
 };
 
 export default api;

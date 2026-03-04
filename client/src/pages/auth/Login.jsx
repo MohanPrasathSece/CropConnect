@@ -98,22 +98,6 @@ const Login = () => {
             <p className="text-slate-500 text-sm">Sign in to your account to continue.</p>
           </div>
 
-          {/* Google sign in */}
-          <button
-            type="button"
-            onClick={() => signInWithGoogle()}
-            className="w-full flex items-center justify-center gap-3 py-3 px-5 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-700 text-sm font-medium mb-6 shadow-sm"
-          >
-            <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="" />
-            Continue with Google
-          </button>
-
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex-1 h-px bg-slate-100" />
-            <span className="text-slate-400 text-xs">or</span>
-            <div className="flex-1 h-px bg-slate-100" />
-          </div>
-
           {/* Error */}
           <AnimatePresence>
             {error && (
@@ -183,6 +167,22 @@ const Login = () => {
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Sign in <ArrowRight className="w-4 h-4" /></>}
             </button>
           </form>
+
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-slate-100" />
+            <span className="text-slate-400 text-xs">or</span>
+            <div className="flex-1 h-px bg-slate-100" />
+          </div>
+
+          {/* Google sign in */}
+          <button
+            type="button"
+            onClick={() => signInWithGoogle()}
+            className="w-full flex items-center justify-center gap-3 py-3 px-5 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all text-slate-700 text-sm font-medium shadow-sm"
+          >
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="" />
+            Continue with Google
+          </button>
 
           <p className="text-center text-sm text-slate-500 mt-6">
             Don't have an account?{' '}

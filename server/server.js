@@ -23,6 +23,7 @@ const farmerRoutes = require('./routes/farmer');
 const retailerRoutes = require('./routes/retailer');
 const notificationRoutes = require('./routes/notifications');
 const mlRoutes = require('./routes/ml');
+const pricingRoutes = require('./routes/pricing');
 
 // Import middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -128,6 +129,7 @@ app.use(`/api/${apiVersion}/farmer`, farmerRoutes);
 app.use(`/api/${apiVersion}/retailer`, retailerRoutes);
 app.use(`/api/${apiVersion}/notifications`, notificationRoutes);
 app.use(`/api/${apiVersion}/ml`, mlRoutes);
+app.use(`/api/${apiVersion}/pricing`, pricingRoutes);
 
 // Welcome route
 app.get('/', (req, res) => {
@@ -174,7 +176,7 @@ process.on('SIGTERM', gracefulShutdown);
 process.on('SIGINT', gracefulShutdown);
 
 // Start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 const startServer = async () => {
   try {

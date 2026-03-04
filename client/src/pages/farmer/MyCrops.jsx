@@ -1,25 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { StatusBadge } from "../../components/farmer/StatusBadge";
-import { Plus, Search, Loader2, Package, ShieldCheck, Eye, X } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Plus, Search, Loader2, Package, ShieldCheck, Eye, X, Pencil, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { farmerApi } from "../../utils/api";
+import { cropApi } from "../../utils/api";
 
 const statusFilters = ["All", "Listed", "Sold"];
 
 export default function MyCropsFarmer() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [crops, setCrops] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
   const [detailCrop, setDetailCrop] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
-  useEffect(() => {
-    if (user?.email) fetchCrops();
-  }, [user]);
-
-  const fetchCrops = async () => {
+  const fetchCrops = useCallback(async () => {
     setLoading(true);
     try {
       const response = await farmerApi.getCrops(user.email);
@@ -30,6 +29,30 @@ export default function MyCropsFarmer() {
       console.error('Error fetching crops:', error);
     } finally {
       setLoading(false);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.email) fetchCrops();
+  }, [user, fetchCrops]);
+
+  const handleEdit = (crop) => {
+    navigate('/farmer/upload', { state: { editCrop: crop } });
+  };
+
+  const handleDelete = async (crop) => {
+    const ok = window.confirm(`Delete "${crop?.name}"? This will remove the listing.`);
+    if (!ok) return;
+
+    try {
+      setDeletingId(crop.id);
+      await cropApi.delete(crop.id);
+      await fetchCrops();
+    } catch (error) {
+      console.error('Error deleting crop:', error);
+      alert('Failed to delete crop. Please try again.');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -44,6 +67,9 @@ export default function MyCropsFarmer() {
     const url = imageValue?.url || imageValue;
     if (typeof url === 'string' && url.includes('localhost:5000/uploads/')) {
       return url.replace(/^https?:\/\/localhost:5000/, '');
+    }
+    if (typeof url === 'string' && url.includes('localhost:5001/uploads/')) {
+      return url.replace(/^https?:\/\/localhost:5001/, '');
     }
     return url;
   };
@@ -146,11 +172,32 @@ export default function MyCropsFarmer() {
                     Manage
                   </Link>
                   <button
+                    type="button"
+                    onClick={() => handleEdit(crop)}
+                    className="px-3 py-2.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-all flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wider active:scale-95"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </button>
+                  <button
                     onClick={() => setDetailCrop(crop)}
                     className="px-4 py-2.5 rounded-lg bg-white text-slate-500 border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wider active:scale-95"
                   >
                     <Eye className="h-3.5 w-3.5" />
                     Details
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deletingId === crop.id}
+                    onClick={() => handleDelete(crop)}
+                    className="px-3 py-2.5 rounded-lg bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-all flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wider active:scale-95 disabled:opacity-60"
+                  >
+                    {deletingId === crop.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                    Delete
                   </button>
                 </div>
               </div>

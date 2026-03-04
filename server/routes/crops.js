@@ -354,4 +354,68 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// @desc    Delete crop (soft delete)
+// @route   DELETE /api/v1/crops/:id
+// @access  Public (simplified auth)
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('Attempting to delete crop with ID:', id);
+
+    // First check if crop exists
+    const { data: existingCrop, error: fetchError } = await supabase
+      .from('crops')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) {
+      console.error('Crop fetch error during delete:', fetchError);
+      return res.status(404).json({
+        success: false,
+        message: 'Crop not found',
+        error: fetchError.message
+      });
+    }
+
+    if (!existingCrop) {
+      console.log('Crop not found with ID:', id);
+      return res.status(404).json({
+        success: false,
+        message: 'Crop not found'
+      });
+    }
+
+    console.log('Found crop to delete:', existingCrop.name);
+
+    const { data: crop, error } = await supabase
+      .from('crops')
+      .update({
+        status: 'inactive',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Crop update error during delete:', error);
+      throw error;
+    }
+
+    console.log('Successfully deleted crop:', crop.name);
+    res.json({
+      success: true,
+      message: 'Crop deleted successfully',
+      crop
+    });
+  } catch (error) {
+    console.error('Delete crop full error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to delete crop: ' + error.message
+    });
+  }
+});
+
 module.exports = router;

@@ -11,11 +11,16 @@ import {
     ArrowDownRight,
     ShieldCheck,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    Plus,
+    Pencil,
+    Trash2,
+    Loader2
 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { StatCard } from '../../components/farmer/StatCard';
-import StatusBadge from '../../components/farmer/StatusBadge';
-import { farmerApi } from '../../utils/api';
+import { StatusBadge } from '../../components/farmer/StatusBadge';
+import { cropApi, farmerApi } from '../../utils/api';
 import { useAuth } from '../../contexts/AuthContext';
 import {
     LineChart,
@@ -31,8 +36,11 @@ import {
 
 const FarmerDashboard = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [recentCrops, setRecentCrops] = useState([]);
+    const [deletingId, setDeletingId] = useState(null);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
@@ -50,6 +58,47 @@ const FarmerDashboard = () => {
 
         if (user?.email) fetchDashboardData();
     }, [user]);
+
+    useEffect(() => {
+        const fetchRecentCrops = async () => {
+            try {
+                const res = await farmerApi.getCrops(user.email);
+                if (res.data?.success) {
+                    const crops = res.data.crops || res.data.data?.crops || [];
+                    setRecentCrops(crops.slice(0, 4));
+                }
+            } catch (e) {
+                console.error('Error fetching recent crops:', e);
+            }
+        };
+
+        if (user?.email) fetchRecentCrops();
+    }, [user]);
+
+    const handleEdit = (crop) => {
+        navigate('/farmer/upload', { state: { editCrop: crop } });
+    };
+
+    const handleDelete = async (crop) => {
+        const ok = window.confirm(`Delete "${crop?.name}"? This will remove the listing.`);
+        if (!ok) return;
+
+        try {
+            setDeletingId(crop.id);
+            await cropApi.delete(crop.id);
+
+            setRecentCrops((prev) => prev.filter((c) => c.id !== crop.id));
+            const response = await farmerApi.getDashboard(user.email);
+            if (response.data.success) {
+                setData(response.data.data);
+            }
+        } catch (e) {
+            console.error('Error deleting crop:', e);
+            alert('Failed to delete crop. Please try again.');
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     if (loading) {
         return (
@@ -86,6 +135,24 @@ const FarmerDashboard = () => {
                         <p className="text-xl font-bold text-emerald-600">₹{parseFloat(data?.farmer?.wallet_balance || 0).toLocaleString()}</p>
                     </div>
                 </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="flex flex-col sm:flex-row gap-3">
+                <Link
+                    to="/farmer/upload"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-emerald-700 shadow-sm active:scale-95"
+                >
+                    <Plus className="h-4 w-4" />
+                    Add Product
+                </Link>
+                <Link
+                    to="/farmer/crops"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50 border border-slate-200 shadow-sm active:scale-95"
+                >
+                    <Sprout className="h-4 w-4 text-emerald-600" />
+                    My Products
+                </Link>
             </div>
 
             {/* Main Stats Grid */}
@@ -246,6 +313,55 @@ const FarmerDashboard = () => {
                         View Regional Details <ChevronRight className="w-3 h-3" />
                     </button>
                 </div>
+            </div>
+
+            {/* Recent Products (minimal) */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
+                <div className="flex items-center justify-between gap-4">
+                    <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest leading-none">Recent Products</h3>
+                    <Link to="/farmer/crops" className="text-xs font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-widest">
+                        View All
+                    </Link>
+                </div>
+
+                {recentCrops?.length ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {recentCrops.map((crop) => (
+                            <div key={crop.id} className="rounded-xl border border-slate-200 bg-slate-50/40 p-4 flex items-start justify-between gap-4">
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold text-slate-900 truncate">{crop.name}</p>
+                                    <p className="text-xs text-slate-500 font-medium mt-1">
+                                        {crop.quantity} {crop.unit} · ₹{crop.price_per_unit || crop.pricePerUnit}
+                                    </p>
+                                    <div className="mt-2">
+                                        <StatusBadge status={crop.status} />
+                                    </div>
+                                </div>
+                                <div className="flex gap-2 shrink-0">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleEdit(crop)}
+                                        className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors active:scale-95"
+                                        title="Edit"
+                                    >
+                                        <Pencil className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={deletingId === crop.id}
+                                        onClick={() => handleDelete(crop)}
+                                        className="p-2 rounded-lg bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 transition-colors active:scale-95 disabled:opacity-60"
+                                        title="Delete"
+                                    >
+                                        {deletingId === crop.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="text-sm text-slate-500">No products yet. Click “Add Product” to list your first harvest.</div>
+                )}
             </div>
         </div>
     );

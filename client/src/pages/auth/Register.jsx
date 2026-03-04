@@ -118,22 +118,6 @@ const Register = () => {
             <p className="text-slate-500 text-sm">It's free and only takes a minute.</p>
           </div>
 
-          {/* Google sign up */}
-          <button
-            type="button"
-            onClick={() => signInWithGoogle()}
-            className="w-full flex items-center justify-center gap-3 py-3 px-5 border border-slate-200 rounded-xl hover:bg-white transition-all text-slate-700 text-sm font-medium mb-6 bg-white shadow-sm"
-          >
-            <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="" />
-            Sign up with Google
-          </button>
-
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex-1 h-px bg-slate-200" />
-            <span className="text-slate-400 text-xs">or fill in your details</span>
-            <div className="flex-1 h-px bg-slate-200" />
-          </div>
-
           {/* Error */}
           <AnimatePresence>
             {error && (
@@ -226,6 +210,22 @@ const Register = () => {
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Create account <ArrowRight className="w-4 h-4" /></>}
             </button>
           </form>
+
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-slate-400 text-xs">or</span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </div>
+
+          {/* Google sign up */}
+          <button
+            type="button"
+            onClick={() => signInWithGoogle()}
+            className="w-full flex items-center justify-center gap-3 py-3 px-5 border border-slate-200 rounded-xl hover:bg-white transition-all text-slate-700 text-sm font-medium bg-white shadow-sm"
+          >
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="" />
+            Sign up with Google
+          </button>
 
           <p className="text-center text-sm text-slate-500 mt-6">
             Already have an account?{' '}

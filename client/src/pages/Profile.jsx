@@ -68,7 +68,17 @@ const Profile = () => {
       setFormData({
         name: data.name || '',
         phone: data.phone || '',
-        address: data.address || formData.address,
+        address: {
+          village: data.address?.village || '',
+          district: data.address?.district || '',
+          state: data.address?.state || '',
+          pincode: data.address?.pincode || '',
+          fullAddress: data.address?.fullAddress || '',
+          coordinates: {
+            latitude: data.address?.coordinates?.latitude || '',
+            longitude: data.address?.coordinates?.longitude || ''
+          }
+        },
         farmerDetails: data.farmer_details || formData.farmerDetails
       });
     } catch (error) {
@@ -324,10 +334,10 @@ const Profile = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {[
-                  { label: 'Village Node', name: 'address.village', val: formData.address.village },
-                  { label: 'District Hub', name: 'address.district', val: formData.address.district },
-                  { label: 'Regional Sector', name: 'address.state', val: formData.address.state },
-                  { label: 'Postal Signature', name: 'address.pincode', val: formData.address.pincode }
+                  { label: 'Village Node', name: 'address.village', val: String(formData.address?.village || '') },
+                  { label: 'District Hub', name: 'address.district', val: String(formData.address?.district || '') },
+                  { label: 'Regional Sector', name: 'address.state', val: String(formData.address?.state || '') },
+                  { label: 'Postal Signature', name: 'address.pincode', val: String(formData.address?.pincode || '') }
                 ].map((input) => (
                   <div key={input.label} className="space-y-3">
                     <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">
@@ -350,7 +360,7 @@ const Profile = () => {
                   </label>
                   <textarea
                     name="address.fullAddress"
-                    value={formData.address.fullAddress}
+                    value={String(formData.address?.fullAddress || '')}
                     onChange={handleChange}
                     disabled={!editing}
                     rows={3}

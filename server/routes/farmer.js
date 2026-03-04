@@ -193,20 +193,42 @@ router.get('/dashboard/:email', async (req, res) => {
 router.get('/crops/:email', async (req, res) => {
     try {
         const { email } = req.params;
-        const { data: farmer } = await supabase.from('profiles').select('id').eq('email', email).single();
+        console.log('Fetching crops for email:', email);
+        
+        const { data: farmer, error: farmerError } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', email)
+            .single();
 
-        if (!farmer) return res.status(404).json({ success: false, message: 'Farmer not found' });
+        if (farmerError) {
+            console.error('Farmer lookup error:', farmerError);
+            return res.status(404).json({ success: false, message: 'Farmer not found', error: farmerError.message });
+        }
+
+        if (!farmer) {
+            console.log('Farmer not found for email:', email);
+            return res.status(404).json({ success: false, message: 'Farmer not found' });
+        }
+
+        console.log('Found farmer ID:', farmer.id);
 
         const { data: crops, error } = await supabase
             .from('crops')
             .select('*')
             .eq('farmer_id', farmer.id)
+            .neq('status', 'inactive')
             .order('created_at', { ascending: false });
 
-        if (error) throw error;
+        if (error) {
+            console.error('Crops query error:', error);
+            throw error;
+        }
 
-        res.json({ success: true, crops });
+        console.log('Found crops:', crops?.length || 0);
+        res.json({ success: true, crops: crops || [] });
     } catch (error) {
+        console.error('Get farmer crops full error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 });

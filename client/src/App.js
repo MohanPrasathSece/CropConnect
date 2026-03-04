@@ -16,6 +16,7 @@ import QRScanner from './pages/QRScanner';
 import TraceProduct from './pages/TraceProduct';
 import CropDetails from './pages/CropDetails';
 import NotFound from './pages/NotFound';
+import AuthCallback from './pages/auth/AuthCallback';
 
 // Dashboard Pages (Directly imported for speed)
 import FarmerDashboard from './pages/farmer/FarmerDashboard';
@@ -122,6 +123,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/select-role" element={
             <ProtectedRoute>
               <RoleSelection />

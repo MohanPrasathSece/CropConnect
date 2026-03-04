@@ -1,21 +1,15 @@
 import React, { useState } from "react";
-import { LayoutDashboard, Users, QrCode, ShieldCheck, Warehouse, Store, ClipboardList, Truck, DollarSign, FileText, UserCircle, Settings, LogOut, Menu, X, Sprout } from "lucide-react";
+import { LayoutDashboard, Users, QrCode, Warehouse, ClipboardList, DollarSign, LogOut, Menu, X, Sprout } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 
 const navItems = [
     { title: "Dashboard", url: "/aggregator/dashboard", icon: LayoutDashboard },
-    { title: "Collections", url: "/aggregator/collections", icon: Users },
+    { title: "My Products", url: "/aggregator/collections", icon: Users },
     { title: "Scan Crop", url: "/aggregator/scan-qr", icon: QrCode },
-    { title: "Quality Check", url: "/aggregator/verify", icon: ShieldCheck },
+    { title: "Orders", url: "/aggregator/retailer-orders", icon: ClipboardList },
     { title: "Inventory", url: "/aggregator/storage", icon: Warehouse },
-    { title: "Marketplace", url: "/aggregator/marketplace", icon: Store },
-    { title: "Retail Orders", url: "/aggregator/retailer-orders", icon: ClipboardList },
-    { title: "Logistics", url: "/aggregator/logistics", icon: Truck },
     { title: "Payments", url: "/aggregator/payments", icon: DollarSign },
-    { title: "Reports", url: "/aggregator/reports", icon: FileText },
-    { title: "Profile", url: "/aggregator/profile", icon: UserCircle },
-    { title: "Settings", url: "/aggregator/settings", icon: Settings },
 ];
 
 export default function AggregatorSidebar() {
