@@ -98,7 +98,7 @@ const QRLabel = () => {
                   <ShieldCheck className="w-6 h-6" />
                 </div>
                 <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase leading-none">
-                  CropConnect
+                  FarmFlow
                 </h1>
               </div>
               <div className="space-y-1">

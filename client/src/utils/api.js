@@ -58,6 +58,7 @@ export const aggregatorApi = {
     collectCrop: (data) => api.post('/aggregator/collect-crop', data),
     getAnalytics: () => api.get('/aggregator/analytics'),
     getTrace: (id) => api.get(`/aggregator/trace/${id}`),
+    listCollection: (data) => api.post('/aggregator/list-collection', data),
 };
 
 export const blockchainApi = {
@@ -94,6 +95,7 @@ export const orderApi = {
     getFarmerOrders: (email) => api.get(`/orders/farmer/${email}`),
     getFarmerStats: (email) => api.get(`/orders/farmer/${email}/stats`),
     updateStatus: (orderId, data) => api.put(`/orders/${orderId}/status`, data),
+    getDetails: (id) => api.get(`/orders/${id}`),
 };
 
 export const aiQualityApi = {

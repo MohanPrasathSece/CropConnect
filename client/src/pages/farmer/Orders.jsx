@@ -110,6 +110,14 @@ export default function Orders() {
                                                 >
                                                     <Eye className="h-4 w-4 text-slate-400 group-hover/btn:text-emerald-600" />
                                                 </button>
+                                                <a
+                                                    href={`/order-qr/${order.order_id || order.id}`}
+                                                    target="_blank"
+                                                    className="p-2.5 bg-white border border-slate-100 rounded-lg hover:bg-slate-50 transition-all shadow-sm group/btn"
+                                                    title="Generate QR Label"
+                                                >
+                                                    <QrCode className="h-4 w-4 text-slate-400 group-hover/btn:text-blue-600" />
+                                                </a>
                                             </div>
                                         </td>
                                     </tr>

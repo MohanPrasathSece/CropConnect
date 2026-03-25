@@ -191,13 +191,13 @@ const QRScanner = () => {
                 <span className="text-emerald-500">History.</span>
               </h1>
               <p className="text-slate-400 text-base font-medium max-w-xs leading-relaxed">
-                Scan any CropConnect QR code to view its full journey and quality reports.
+                Scan any FarmFlow QR code to view its full journey and quality reports.
               </p>
             </motion.div>
           </div>
 
           <div className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.3em]">
-            © 2026 CropConnect
+            © 2026 FarmFlow
           </div>
         </div>
       </div>
@@ -409,7 +409,7 @@ const QRScanner = () => {
           )}
 
           <div className="pt-10 flex items-center justify-between border-t border-slate-50">
-            <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">CropConnect Transparency v2.4</p>
+            <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">FarmFlow Transparency v4.0</p>
           </div>
         </div>
       </div>

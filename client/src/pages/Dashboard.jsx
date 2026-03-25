@@ -48,8 +48,8 @@ const DefaultDashboard = ({ user }) => {
             <h1 className="text-4xl font-bold text-slate-900 mb-4">
               Hello, <span className="text-emerald-600">{user?.name?.split(' ')[0] || 'User'}</span>
             </h1>
-            <p className="text-lg text-slate-600 mb-8">
-              Welcome back to CropConnect. Access your tools for agricultural commerce and activity tracking.
+            <p className="text-lg text-slate-600 mb-8 font-medium">
+              Welcome back to FarmFlow. Access your tools for agricultural commerce and absolute traceability.
             </p>
             <div className="flex gap-4 text-xs font-semibold uppercase tracking-wider text-slate-500">
               <span className="px-3 py-1 bg-slate-100 rounded-md">Role: {user?.role || 'User'}</span>

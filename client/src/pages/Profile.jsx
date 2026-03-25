@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { useAuth } from '../contexts/AuthContext';
 import { locationService } from '../utils/locationService';
+import { formatLocation } from '../utils/format';
 import {
   User,
   MapPin,
   Navigation,
   Loader2,
   Save,
-  Edit3,
+  Edit3, // Keep Edit3 as it's used
   X,
   ShieldCheck,
   Smartphone,
@@ -17,7 +18,10 @@ import {
   ChevronRight,
   Globe,
   Lock,
-  Boxes
+  Boxes,
+  Phone, // Added Phone
+  Edit2, // Added Edit2, though Edit3 is still used
+  AlertCircle // Added AlertCircle
 } from 'lucide-react';
 
 const Profile = () => {
@@ -188,7 +192,7 @@ const Profile = () => {
 
               <div className="space-y-4">
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
-                  <Lock className="w-3 h-3 text-emerald-600" />
+                  <Lock className="w-3 h-3" />
                   <span className="text-[9px] font-black text-emerald-700 uppercase tracking-widest">Authorized Identity Node</span>
                 </div>
                 <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter leading-none">
@@ -383,6 +387,8 @@ const Profile = () => {
                     <span className="text-emerald-400 text-[9px] font-black uppercase tracking-[0.2em]">Security Protocol v2</span>
                   </div>
                   <h3 className="text-2xl font-black text-white uppercase tracking-tight">Audit Session</h3>
+                  <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-[0.3em] leading-none mb-1">Regional Operation Node</span>
+                  <p className="text-xl font-bold text-slate-400 uppercase tracking-tight">{formatLocation(formData.address) || 'Regional Node'}</p>
                   <p className="text-sm font-bold text-slate-500 uppercase leading-relaxed tracking-tight">
                     Synchronize your local node modifications with the decentralized identity ledger.
                   </p>

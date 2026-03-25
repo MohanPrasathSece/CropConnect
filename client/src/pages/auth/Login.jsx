@@ -44,10 +44,10 @@ const Login = () => {
         <div className="relative z-10 flex flex-col justify-between h-full p-14">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 w-fit">
-            <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-xl shadow-emerald-500/20">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-cover scale-150" />
             </div>
-            <span className="text-white font-semibold text-base tracking-wide">CropConnect</span>
+            <span className="text-white font-black text-lg tracking-tighter uppercase">FarmFlow</span>
           </Link>
 
           {/* Main copy */}
@@ -72,7 +72,7 @@ const Login = () => {
             </div>
           </div>
 
-          <p className="text-emerald-200/40 text-xs">© 2026 CropConnect. All rights reserved.</p>
+          <p className="text-emerald-200/40 text-[9px] font-black uppercase tracking-[0.2em]">© 2026 FarmFlow. All rights reserved.</p>
         </div>
       </div>
 
@@ -85,11 +85,11 @@ const Login = () => {
           className="w-full max-w-md"
         >
           {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-2 mb-10">
-            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
-              <ShieldCheck className="w-4 h-4 text-white" />
+          <div className="flex lg:hidden items-center gap-3 mb-10">
+            <div className="w-10 h-10 bg-white border border-slate-100 rounded-xl flex items-center justify-center overflow-hidden shadow-lg shadow-emerald-500/10">
+              <img src="/logo.png" alt="Logo" className="w-full h-full object-cover scale-150" />
             </div>
-            <span className="text-slate-800 font-semibold">CropConnect</span>
+            <span className="text-slate-900 font-black tracking-tighter uppercase">FarmFlow</span>
           </div>
 
           {/* Heading */}

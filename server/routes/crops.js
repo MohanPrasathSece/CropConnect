@@ -42,7 +42,7 @@ router.get('/marketplace', async (req, res) => {
       .from('crops')
       .select('*, farmer:profiles(*)', { count: 'exact' })
       .eq('status', 'listed')
-      .eq('is_active', true);
+
 
     if (category) query = query.eq('category', category);
     if (isOrganic === 'true') query = query.eq('is_organic', true);
@@ -97,7 +97,7 @@ router.get('/:id', async (req, res) => {
       .eq('id', req.params.id)
       .single();
 
-    if (error || !crop || !crop.is_active) {
+    if (error || !crop) {
       return res.status(404).json({
         success: false,
         message: 'Crop not found'
@@ -276,7 +276,7 @@ router.get('/farmer/:email', async (req, res) => {
       .from('crops')
       .select('*, farmer:profiles(*)', { count: 'exact' })
       .eq('farmer_id', farmer.id)
-      .eq('is_active', true);
+
 
     if (status && status !== 'all') {
       query = query.eq('status', status);
@@ -391,7 +391,7 @@ router.delete('/:id', async (req, res) => {
     const { data: crop, error } = await supabase
       .from('crops')
       .update({
-        status: 'inactive',
+
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -399,7 +399,7 @@ router.delete('/:id', async (req, res) => {
       .single();
 
     if (error) {
-      console.error('Crop update error during delete:', error);
+      console.error('Crop deactivate error during delete:', error);
       throw error;
     }
 

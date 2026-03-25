@@ -27,9 +27,7 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-background text-foreground landing-page">
       <LandingNavbar />
-      <div className="pt-[72px]">
-        <HeroSection />
-      </div>
+      <HeroSection />
       <FeaturesSection />
       <div className="relative z-10">
         <HowItWorksSection />

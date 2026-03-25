@@ -68,13 +68,17 @@ const RoleSelection = () => {
     return (
         <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
             <div className="w-full max-w-2xl space-y-8">
-                <div className="text-center space-y-2">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-white rounded-full border border-slate-200 shadow-sm mb-4">
-                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                        <span className="text-[10px] font-bold text-slate-800 uppercase tracking-widest">CropConnect · Role Setup</span>
+                <div className="text-center space-y-4">
+                    <div className="flex justify-center">
+                        <div className="w-16 h-16 bg-white border border-slate-100 rounded-[1.5rem] flex items-center justify-center overflow-hidden shadow-xl shadow-emerald-500/10 mb-2">
+                            <img src="/logo.png" alt="Logo" className="w-full h-full object-cover scale-150" />
+                        </div>
                     </div>
-                    <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Identity Definition</h1>
-                    <p className="text-sm text-slate-500 font-medium">Select your primary role to initialize your network node.</p>
+                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-white rounded-full border border-slate-200 shadow-sm">
+                        <span className="text-[10px] font-black text-slate-900 uppercase tracking-widest">FarmFlow · Setup</span>
+                    </div>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-tighter uppercase">Initialize Node</h1>
+                    <p className="text-sm text-slate-500 font-bold uppercase tracking-widest opacity-60">Select your functional role</p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -112,8 +116,8 @@ const RoleSelection = () => {
                 </div>
 
                 <div className="text-center">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        © 2026 CropConnect · All rights reserved
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        © 2026 FarmFlow · All rights reserved
                     </p>
                 </div>
             </div>

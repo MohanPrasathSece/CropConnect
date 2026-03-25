@@ -81,13 +81,13 @@ router.post('/analyze-quality', upload.array('images', 5), async (req, res) => {
             pricePerUnit && `Farmer's asking price: ₹${pricePerUnit} per ${unit || 'unit'}`
         ].filter(Boolean).join('\n');
 
-        // Build detailed Gemini prompt using produce info
-        const prompt = `You are an expert agricultural quality inspector at a certified produce grading center in India.
+        // Build comprehensive Gemini prompt using produce info
+        const prompt = `You are an expert agricultural quality inspector at a certified produce grading center in India with 15+ years of experience in quality assessment and market analysis.
 
 A farmer has submitted the following produce for quality certification:
 ${produceDetails}
 
-Please carefully analyze the image(s) of this produce and return a quality assessment in the following JSON format only — no extra text, no markdown, no explanation:
+Please carefully analyze the image(s) of this produce and provide a comprehensive quality assessment in the following JSON format only — no extra text, no markdown, no explanation:
 
 {
   "overallGrade": "Premium|A|B|C|Rejected",
@@ -97,25 +97,50 @@ Please carefully analyze the image(s) of this produce and return a quality asses
     "color": "Excellent|Good|Fair|Poor",
     "texture": "Uniform|Slightly Varied|Inconsistent",
     "size": "Uniform|Mixed|Small",
-    "uniformity": <integer 0-100>
+    "uniformity": <integer 0-100>,
+    "freshness": "Excellent|Good|Fair|Poor",
+    "ripeness": "Underripe|Perfect|Overripe"
   },
   "defects": [
     { "type": "<defect name>", "severity": "Low|Medium|High", "affectedPercentage": <number> }
   ],
-  "moistureContent": <estimated number 10-30>,
-  "purityLevel": <integer 0-100>,
-  "pesticidesRisk": "None|Low|Moderate|High",
-  "organicCompliance": <boolean>,
-  "marketRecommendation": {
+  "qualityMetrics": {
+    "moistureContent": <estimated number 10-30>,
+    "purityLevel": <integer 0-100>,
+    "shelfLife": <estimated days>,
+    "nutritionalValue": "High|Medium|Low"
+  },
+  "safetyChecks": {
+    "pesticidesRisk": "None|Low|Moderate|High",
+    "contaminants": <boolean>,
+    "organicCompliance": <boolean>,
+    "foodSafetyGrade": "Excellent|Good|Fair|Poor"
+  },
+  "marketAnalysis": {
     "suggestedPrice": <number in INR per unit>,
     "priceFeedback": "<tell farmer if their price is good, low, or high vs market>",
     "marketDemand": "High|Medium|Low",
-    "bestBuyersFor": ["<buyer type, e.g. Wholesale Market>", "<Supermarkets>"]
+    "bestBuyersFor": ["<buyer type>", "<another buyer type>"],
+    "exportPotential": "High|Medium|Low",
+    "storageRequirements": "<storage guidance>"
   },
-  "improvementTips": ["<actionable tip 1>", "<actionable tip 2>"]
+  "aggregatorReadiness": {
+    "readyForCollection": <boolean>,
+    "collectionPriority": "High|Medium|Low",
+    "recommendedActions": ["<action 1>", "<action 2>"]
+  },
+  "improvementTips": ["<actionable tip 1>", "<actionable tip 2>", "<tip 3>"],
+  "nextSteps": ["<what farmer should do next>"]
 }
 
-Important: Provide realistic, accurate assessments. If the image quality makes it hard to analyse, reflect that in a lower uniformity score rather than refusing to answer.`;
+Critical Assessment Guidelines:
+1. Be thorough but fair in grading
+2. Consider Indian market standards and pricing
+3. Focus on quality metrics that matter to aggregators
+4. Provide actionable feedback for improvement
+5. If image quality is poor, reflect in uniformity score
+6. Consider seasonal factors and current market conditions
+7. Assess readiness for aggregator collection and retail sale`;
 
         let finalAnalysis = null;
 
@@ -181,7 +206,7 @@ Important: Provide realistic, accurate assessments. If the image quality makes i
  */
 function generateFallbackAnalysis(produceName = 'Produce', pricePerUnit) {
     const score = Math.floor(Math.random() * 15) + 78; // 78–92
-    const grade = score >= 90 ? 'A' : score >= 80 ? 'A' : 'B';
+    const grade = score >= 90 ? 'Premium' : score >= 80 ? 'A' : 'B';
     const suggestedPrice = pricePerUnit ? Math.round(parseFloat(pricePerUnit) * 1.05) : 45;
 
     return {
@@ -192,24 +217,47 @@ function generateFallbackAnalysis(produceName = 'Produce', pricePerUnit) {
             color: 'Good',
             texture: 'Uniform',
             size: 'Uniform',
-            uniformity: score
+            uniformity: score,
+            freshness: 'Good',
+            ripeness: 'Perfect'
         },
         defects: [],
-        moistureContent: 14,
-        purityLevel: 92,
-        pesticidesRisk: 'None',
-        organicCompliance: true,
-        marketRecommendation: {
+        qualityMetrics: {
+            moistureContent: 14,
+            purityLevel: 92,
+            shelfLife: 12,
+            nutritionalValue: 'High'
+        },
+        safetyChecks: {
+            pesticidesRisk: 'None',
+            contaminants: false,
+            organicCompliance: true,
+            foodSafetyGrade: 'Good'
+        },
+        marketAnalysis: {
             suggestedPrice,
             priceFeedback: pricePerUnit
                 ? `Your asking price of ₹${pricePerUnit} is competitive.`
                 : 'Set a fair price based on local market rates.',
             marketDemand: 'Medium',
-            bestBuyersFor: ['Local Wholesale Market', 'Regional Aggregators']
+            bestBuyersFor: ['Local Wholesale Market', 'Regional Aggregators'],
+            exportPotential: 'Low',
+            storageRequirements: 'Store in cool, dry place away from direct sunlight'
+        },
+        aggregatorReadiness: {
+            readyForCollection: true,
+            collectionPriority: 'Medium',
+            recommendedActions: ['Package properly for transport', 'Sort by size for better pricing']
         },
         improvementTips: [
             'Sort produce by size before delivery for better pricing.',
-            'Keep produce cool and dry to maintain freshness.'
+            'Keep produce cool and dry to maintain freshness.',
+            'Consider organic certification for higher market value'
+        ],
+        nextSteps: [
+            'List your produce for aggregator collection',
+            'Prepare proper packaging for transport',
+            'Update farm documentation'
         ]
     };
 }

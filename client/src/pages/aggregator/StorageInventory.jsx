@@ -42,24 +42,24 @@ export default function StorageInventory() {
                         <ArrowLeft className="w-5 h-5 text-slate-400 group-hover:text-emerald-500" />
                     </button>
                     <div className="space-y-1">
-                        <h1 className="text-2xl text-slate-900 tracking-tight font-bold">Consolidated Inventory</h1>
-                        <p className="text-sm text-slate-500">Real-time oversight of regional storage facilities and localized crop volume.</p>
+                        <h1 className="text-2xl text-slate-900 tracking-tight font-bold">My Inventory</h1>
+                        <p className="text-sm text-slate-500">View and manage all crops stored in your facilities.</p>
                     </div>
                 </div>
                 <button
                     onClick={() => setLogOpen(true)}
                     className="flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-2xl text-[10px] font-bold uppercase tracking-widest shadow-xl shadow-slate-900/10 hover:bg-slate-800 transition-all active:scale-95"
                 >
-                    <Plus className="w-4 h-4 text-emerald-500" /> Register Allocation
+                    <Plus className="w-4 h-4 text-emerald-500" /> Add to Storage
                 </button>
             </div>
 
             {/* Storage Matrix */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {[
-                    { icon: Thermometer, label: "Thermal Horizon", value: "24.2°C", trend: "Stability Optimized", color: "blue" },
-                    { icon: Droplets, label: "Humidity Index", value: "45.8%", trend: "Hydration Balance", color: "emerald" },
-                    { icon: MapPin, label: "Facility Nodes", value: "3 Active", trend: "Regional Cluster", color: "indigo" },
+                    { icon: Thermometer, label: "Temperature", value: "24.2°C", trend: "Stable", color: "blue" },
+                    { icon: Droplets, label: "Humidity", value: "45.8%", trend: "Balanced", color: "emerald" },
+                    { icon: MapPin, label: "Storage Facilities", value: "3 Active", trend: "Active Locations", color: "indigo" },
                 ].map((item, i) => (
                     <div key={i} className="bg-white rounded-[40px] p-8 border border-slate-100 shadow-sm group hover:shadow-xl hover:shadow-slate-200/50 transition-all relative overflow-hidden">
                         <div className="relative z-10 flex items-center gap-6">
@@ -84,13 +84,13 @@ export default function StorageInventory() {
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Search regional stock by commodity signature..."
+                        placeholder="Search inventory by crop name..."
                         className="w-full rounded-[24px] border border-slate-100 bg-white py-5 pl-16 pr-8 text-sm font-bold text-slate-700 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500/20 focus:outline-none transition-all shadow-sm"
                     />
                 </div>
                 <button className="px-8 flex items-center justify-center rounded-[24px] bg-white border border-slate-100 text-slate-400 hover:text-slate-900 transition-all shadow-sm">
                     <Filter className="h-5 w-5 mr-3" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">Advanced Lens</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Filter Records</span>
                 </button>
             </div>
 
@@ -100,11 +100,11 @@ export default function StorageInventory() {
                     <table className="w-full text-left">
                         <thead>
                             <tr className="border-b border-slate-50 bg-slate-50/30">
-                                <th className="p-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Asset Commodity</th>
-                                <th className="p-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Net Mass</th>
-                                <th className="p-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Quality Grade</th>
-                                <th className="p-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Storage Node</th>
-                                <th className="p-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Relay Status</th>
+                                <th className="p-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Crop Name</th>
+                                <th className="p-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Total Quantity</th>
+                                <th className="p-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Quality</th>
+                                <th className="p-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Location</th>
+                                <th className="p-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
                                 <th className="p-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Action</th>
                             </tr>
                         </thead>
@@ -153,8 +153,8 @@ export default function StorageInventory() {
                         <div className="p-12 space-y-10">
                             <div className="flex items-center justify-between">
                                 <div className="space-y-1">
-                                    <h2 className="text-2xl text-slate-900 font-bold tracking-tight">Allocation Registry</h2>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Regional Supply Chain Node</p>
+                                    <h2 className="text-2xl text-slate-900 font-bold tracking-tight">Add New Storage Record</h2>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Update your storage inventory</p>
                                 </div>
                                 <button
                                     onClick={() => setLogOpen(false)}
@@ -167,23 +167,23 @@ export default function StorageInventory() {
                             <form onSubmit={handleLogEntry} className="space-y-8">
                                 <div className="space-y-6">
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Facility Protocol Identifier</label>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Storage Facility Name</label>
                                         <input className="w-full rounded-2xl border border-slate-100 bg-slate-50 py-4 px-6 text-sm font-bold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500/20 focus:outline-none transition-all" placeholder="e.g. NASHIK_WAREHOUSE_04" required />
                                     </div>
 
                                     <div className="grid grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Thermal Metric (°C)</label>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Temperature (°C)</label>
                                             <input type="number" className="w-full rounded-2xl border border-slate-100 bg-slate-50 py-4 px-6 text-sm font-bold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500/20 focus:outline-none transition-all" placeholder="24" required />
                                         </div>
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Humidity Ratio (%)</label>
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Humidity (%)</label>
                                             <input type="number" className="w-full rounded-2xl border border-slate-100 bg-slate-50 py-4 px-6 text-sm font-bold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500/20 focus:outline-none transition-all" placeholder="45" required />
                                         </div>
                                     </div>
 
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Commodity Signature</label>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Crop Name</label>
                                         <div className="relative">
                                             <select className="w-full rounded-2xl border border-slate-100 bg-slate-50 py-5 px-8 text-sm font-bold text-slate-800 focus:bg-white focus:border-emerald-500/20 focus:outline-none transition-all appearance-none cursor-pointer">
                                                 <option>Premium Basmati Rice</option>
@@ -196,7 +196,7 @@ export default function StorageInventory() {
                                     </div>
 
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Aggregate Mass (KG)</label>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Quantity (KG)</label>
                                         <input type="number" className="w-full rounded-2xl border border-slate-100 bg-slate-50 py-4 px-6 text-sm font-bold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-emerald-500/20 focus:outline-none transition-all" placeholder="5000" required />
                                     </div>
                                 </div>
@@ -208,14 +208,14 @@ export default function StorageInventory() {
                                         className="flex-1 inline-flex items-center justify-center gap-4 rounded-[28px] bg-slate-900 px-10 py-6 text-[10px] font-bold text-white uppercase tracking-widest shadow-2xl shadow-slate-900/20 hover:bg-slate-800 transition-all active:scale-95 disabled:opacity-50"
                                     >
                                         {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <ShieldCheck className="w-5 h-5 text-emerald-500" />}
-                                        {isSyncing ? "Synchronizing..." : "Register Allocation"}
+                                        {isSyncing ? "Saving..." : "Save Record"}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setLogOpen(false)}
                                         className="px-10 rounded-[28px] bg-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-200 transition-all"
                                     >
-                                        Discard
+                                        Cancel
                                     </button>
                                 </div>
                             </form>

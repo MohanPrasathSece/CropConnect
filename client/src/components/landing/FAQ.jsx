@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const faqs = [
     {
-        question: "How does CropConnect ensure fair pricing?",
+        question: "How does FarmFlow ensure fair pricing?",
         answer: "By removing traditional middlemen and providing a transparent blockchain ledger, farmers can set their own prices based on real-time market data, and transactions are verified by all parties. This ensures more value remains with the producer."
     },
     {
@@ -16,7 +16,7 @@ const faqs = [
         answer: "Simply use our 'Verify Product' tool or any QR scanner to scan the code on the product packaging. You'll see the complete journey—from the exact harvest time to the aggregator collection and final retail arrival."
     },
     {
-        question: "Who can join the CropConnect platform?",
+        question: "Who can join the FarmFlow platform?",
         answer: "Our platform is open to individual farmers, agricultural cooperatives, aggregators, and retail chains. Dashboards are specialized for each role to manage their specific part of the supply chain, while traceability tools remain open for public verification."
     },
     {
@@ -55,7 +55,7 @@ const FAQ = () => {
                         transition={{ delay: 0.1 }}
                         className="text-muted-foreground text-base"
                     >
-                        Everything you need to know about the CropConnect platform.
+                        Everything you need to know about the FarmFlow platform.
                     </motion.p>
                 </div>
 

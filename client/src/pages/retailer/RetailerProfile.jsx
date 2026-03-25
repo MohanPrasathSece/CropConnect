@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { RetailerLayout } from "../../components/retailer/RetailerLayout";
-import { Building2, MapPin, Phone, Mail, ShoppingBag, Edit, ShieldCheck, Calendar, Verified, Loader2, Globe, FileText, BadgeCheck } from "lucide-react";
+import { Camera, MapPin, Phone, Mail, ShoppingBag, ShieldCheck, Edit3, Save, X, Loader2, AlertCircle, Globe } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useWeb3 } from "../../contexts/Web3Context";
 import { retailerApi } from "../../utils/api";
+import { formatLocation } from "../../utils/format";
 
 export default function RetailerProfile() {
     const { user, login } = useAuth();
@@ -45,14 +46,6 @@ export default function RetailerProfile() {
         } finally {
             setLinking(false);
         }
-    };
-
-    const formatAddress = (addr) => {
-        if (typeof addr === 'string') return addr;
-        if (!addr) return 'Regional Logistics Node';
-        const { village, district, state, pincode, fullAddress } = addr;
-        if (fullAddress) return fullAddress;
-        return [village, district, state, pincode].filter(Boolean).join(', ');
     };
 
     if (loading) {
@@ -98,7 +91,7 @@ export default function RetailerProfile() {
                             </div>
                         )}
                         <button className="flex items-center justify-center gap-4 px-10 py-5 bg-slate-900 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl shadow-slate-900/20 hover:bg-emerald-600 transition-all active:scale-95 group">
-                            <Edit className="h-5 w-5 group-hover:rotate-12 transition-transform duration-500" />
+                            <Edit3 className="h-5 w-5 group-hover:rotate-12 transition-transform duration-500" />
                             Modify
                         </button>
                     </div>
@@ -111,10 +104,10 @@ export default function RetailerProfile() {
                     <div className="flex flex-col md:flex-row items-center gap-12 mb-20 relative z-10">
                         <div className="relative group">
                             <div className="h-32 w-32 rounded-[2.5rem] bg-emerald-600 shadow-2xl shadow-emerald-500/30 flex items-center justify-center border-8 border-white group-hover:scale-105 group-hover:rotate-6 transition-all duration-700 overflow-hidden">
-                                {user?.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : <Building2 className="h-14 w-14 text-white" />}
+                                {user?.avatar ? <img src={user.avatar} className="w-full h-full object-cover" /> : <Camera className="h-14 w-14 text-white" />}
                             </div>
                             <div className="absolute -bottom-2 -right-2 h-10 w-10 bg-white rounded-2xl shadow-xl flex items-center justify-center border-2 border-emerald-50 transition-transform group-hover:scale-110">
-                                <BadgeCheck className="h-6 w-6 text-emerald-500" />
+                                <ShieldCheck className="h-6 w-6 text-emerald-500" />
                             </div>
                         </div>
 
@@ -126,7 +119,7 @@ export default function RetailerProfile() {
                                 </div>
                             </div>
                             <div className="flex flex-wrap items-center justify-center md:justify-start gap-6 text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                                <span className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100"><Calendar className="h-4 w-4 text-emerald-500" /> Joined Regional Node: JAN 2026</span>
+                                <span className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100"><AlertCircle className="h-4 w-4 text-emerald-500" /> Joined Regional Node: JAN 2026</span>
                                 <span className="flex items-center gap-2 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100"><Globe className="h-4 w-4 text-emerald-500" /> GLOBAL ID: #{user?.id?.slice(0, 8).toUpperCase()}</span>
                                 {user?.wallet_address && (
                                     <span className="flex items-center gap-2 bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 text-emerald-600">
@@ -139,13 +132,13 @@ export default function RetailerProfile() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 mb-20">
                         {[
-                            { label: "LEGAL REGISTRATION NAME", value: user?.name?.toUpperCase() || "RETAILER CORP", icon: FileText },
-                            { label: "MERCHANT CLASSIFICATION", value: "SUPERMARKET / DISTRIBUTION", icon: Building2 },
-                            { label: "PRIMARY LOGISTICS NODE", value: formatAddress(user?.address), icon: MapPin },
+                            { label: "LEGAL REGISTRATION NAME", value: user?.name?.toUpperCase() || "RETAILER CORP", icon: AlertCircle },
+                            { label: "MERCHANT CLASSIFICATION", value: "SUPERMARKET / DISTRIBUTION", icon: Camera },
+                            { label: "PRIMARY LOGISTICS NODE", value: formatLocation(user?.address), icon: MapPin },
                             { label: "SECURE CONTACT TERMINAL", value: user?.phone || "+91 (555) 001-9872", icon: Phone },
                             { label: "AUTHORIZED LEDGER EMAIL", value: user?.email, icon: Mail, full: true }
                         ].map((field, i) => (
-                            <div key={i} className={`space-y-4 ${field.full ? 'md:col-span-2' : ''}`}>
+                            <div key={i} className={`space - y - 4 ${field.full ? 'md:col-span-2' : ''} `}>
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-2 flex items-center gap-2">
                                     <field.icon className="h-4 w-4 text-emerald-500" /> {field.label}
                                 </label>
@@ -170,12 +163,12 @@ export default function RetailerProfile() {
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
                             {[
                                 { label: "TOTAL PROCUREMENT", value: stats?.completedOrders || "148", icon: ShoppingBag, color: "text-emerald-500" },
-                                { label: "CUMULATIVE SETTLEMENT", value: stats?.totalSpent ? `₹${stats.totalSpent.toLocaleString()}` : "₹1.1Cr", icon: ShieldCheck, color: "text-blue-500" },
+                                { label: "CUMULATIVE SETTLEMENT", value: stats?.totalSpent ? `₹${stats.totalSpent.toLocaleString()} ` : "₹1.1Cr", icon: ShieldCheck, color: "text-blue-500" },
                                 { label: "ACTIVE NODES", value: "24", icon: MapPin, color: "text-orange-500" },
                             ].map((stat, i) => (
                                 <div key={i} className="p-10 rounded-[3rem] bg-slate-50 border-2 border-slate-50 group hover:bg-white hover:border-emerald-500/20 hover:shadow-2xl hover:shadow-slate-200 transition-all text-center relative overflow-hidden">
                                     <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl -mr-8 -mt-8 transition-opacity opacity-0 group-hover:opacity-100" />
-                                    <p className={`text-4xl font-black mb-3 tracking-tighter ${stat.color} group-hover:scale-110 transition-transform duration-700`}>{stat.value}</p>
+                                    <p className={`text - 4xl font - black mb - 3 tracking - tighter ${stat.color} group - hover: scale - 110 transition - transform duration - 700`}>{stat.value}</p>
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">{stat.label}</p>
                                 </div>
                             ))}
@@ -187,10 +180,13 @@ export default function RetailerProfile() {
                     <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px]" />
                     <div className="flex items-center gap-8 relative z-10">
                         <div className="h-16 w-16 bg-white/10 rounded-[1.5rem] flex items-center justify-center backdrop-blur-xl border border-white/10">
-                            <Verified className="h-8 w-8 text-emerald-400" />
+                            <ShieldCheck className="h-8 w-8 text-emerald-400" />
                         </div>
                         <div className="space-y-1">
                             <h4 className="text-xl font-black tracking-tight uppercase">{user?.wallet_address ? "Ledger Verified Terminal" : "Unverified Identity Node"}</h4>
+                            <p className="text-xl font-bold text-slate-400 uppercase tracking-tight">
+                                {formatLocation(user?.address) || 'Regional Node'}
+                            </p>
                             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
                                 {user?.wallet_address
                                     ? `Terminal ID ${user.wallet_address} is cryptographically linked to the AgriTrack ledger.`

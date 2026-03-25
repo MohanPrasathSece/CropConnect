@@ -14,6 +14,7 @@ import RoleSelection from './pages/auth/RoleSelection';
 import Dashboard from './pages/Dashboard';
 import QRScanner from './pages/QRScanner';
 import TraceProduct from './pages/TraceProduct';
+import TracePage from './pages/TracePage';
 import CropDetails from './pages/CropDetails';
 import NotFound from './pages/NotFound';
 import AuthCallback from './pages/auth/AuthCallback';
@@ -88,17 +89,9 @@ const RetailerProfile = lazy(() => import('./pages/retailer/RetailerProfile'));
 const RetailerDelivery = lazy(() => import('./pages/retailer/RetailerDelivery'));
 
 const AggregatorCollections = lazy(() => import('./pages/aggregator/AggregatorCollections'));
-const LogisticsDelivery = lazy(() => import('./pages/aggregator/LogisticsDelivery'));
-const AggregatorPayments = lazy(() => import('./pages/aggregator/PaymentsSettlements'));
 const AggregatorProfile = lazy(() => import('./pages/aggregator/AggregatorProfile'));
-const StorageInventory = lazy(() => import('./pages/aggregator/StorageInventory'));
-const QualityVerification = lazy(() => import('./pages/aggregator/QualityVerification'));
 const CropCollection = lazy(() => import('./pages/aggregator/CropCollection'));
-const AggregatorMarketplace = lazy(() => import('./pages/aggregator/RetailerMarketplace'));
-const AggregatorRetailerOrders = lazy(() => import('./pages/aggregator/RetailerOrders'));
-const ReportsTraceability = lazy(() => import('./pages/aggregator/ReportsTraceability'));
 const AggregatorQRScanner = lazy(() => import('./pages/aggregator/AggregatorQRScanner'));
-const AggregatorSettings = lazy(() => import('./pages/aggregator/AggregatorSettings'));
 const RetailerTraceability = lazy(() => import('./pages/retailer/RetailerTraceability'));
 const RetailerSettings = lazy(() => import('./pages/retailer/RetailerSettings'));
 const ConsumerDashboard = lazy(() => import('./pages/consumer/ConsumerDashboard'));
@@ -106,6 +99,7 @@ const ConsumerMarketplace = lazy(() => import('./pages/consumer/ConsumerMarketpl
 const BlockchainDemo = lazy(() => import('./pages/consumer/BlockchainDemo'));
 const MyOrders = lazy(() => import('./pages/MyOrders'));
 const Profile = lazy(() => import('./pages/Profile'));
+const OrderQRLabel = lazy(() => import('./pages/OrderQRLabel'));
 
 
 const LoadingFallback = () => (
@@ -135,8 +129,10 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/trace" element={<TraceProduct />} />
+          <Route path="/trace/:traceId" element={<TracePage />} />
           <Route path="/qr" element={<QRScanner />} />
           <Route path="/crop/:id" element={<CropDetails />} />
+          <Route path="/order-qr/:id" element={<OrderQRLabel />} />
 
           {/* Farmer App */}
           <Route path="/farmer" element={<ProtectedRoute allowedRoles={['farmer']}><FarmerLayout /></ProtectedRoute>}>
@@ -171,17 +167,11 @@ function App() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AggregatorDashboard />} />
             <Route path="collections" element={<AggregatorCollections />} />
-            <Route path="logistics" element={<LogisticsDelivery />} />
-            <Route path="payments" element={<AggregatorPayments />} />
-            <Route path="profile" element={<AggregatorProfile />} />
-            <Route path="storage" element={<StorageInventory />} />
-            <Route path="verify" element={<QualityVerification />} />
             <Route path="collect" element={<CropCollection />} />
-            <Route path="marketplace" element={<AggregatorMarketplace />} />
-            <Route path="retailer-orders" element={<AggregatorRetailerOrders />} />
-            <Route path="reports" element={<ReportsTraceability />} />
+            <Route path="retailer-marketplace" element={<RetailerMarketplace />} />
+            <Route path="retailer-orders" element={<RetailerOrders />} />
+            <Route path="profile" element={<AggregatorProfile />} />
             <Route path="scan-qr" element={<AggregatorQRScanner />} />
-            <Route path="settings" element={<AggregatorSettings />} />
           </Route>
 
           {/* Consumer App */}

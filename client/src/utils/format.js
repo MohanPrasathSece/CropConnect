@@ -10,9 +10,12 @@ export const formatLocation = (location) => {
     // Handle Supabase JSONB location object
     const { village, district, state, pincode, fullAddress, full_address } = location;
 
-    if (fullAddress || full_address) return fullAddress || full_address;
+    // Safety: ensure we return a string, not a nested object
+    if (typeof (fullAddress || full_address) === 'string' && (fullAddress || full_address)) {
+        return fullAddress || full_address;
+    }
 
     return [village, district, state, pincode]
-        .filter(Boolean)
-        .join(', ') || 'Regional Data Center';
+        .filter(v => typeof v === 'string' && v.trim())
+        .join(', ') || 'Regional Center';
 };

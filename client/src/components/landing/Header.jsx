@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Menu, X, Wheat, ShieldCheck, Languages } from "lucide-react";
+import { Menu, X, Wheat, ShieldCheck, Languages, Globe, ChevronDown, Leaf, Sprout } from "lucide-react";
 import { Button } from "../ui/button";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -9,10 +9,31 @@ const Header = () => {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [translateOpen, setTranslateOpen] = useState(false);
+    const [selectedLanguage, setSelectedLanguage] = useState('en');
     const { isAuthenticated, logout } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
+    // Available languages with their codes and names
+    const languages = [
+        { code: 'en', name: 'English', flag: '🇺🇸' },
+        { code: 'hi', name: 'हिन्दी', flag: '🇮🇳' },
+        { code: 'or', name: 'ଓଡ଼ିଆ', flag: '🇮🇳' },
+        { code: 'bn', name: 'বাংলা', flag: '🇧🇩' },
+        { code: 'te', name: 'తెలుగు', flag: '🇮🇳' },
+        { code: 'ta', name: 'தமிழ்', flag: '🇱🇰' },
+        { code: 'mr', name: 'मराठी', flag: '🇮🇳' },
+        { code: 'gu', name: 'ગુજરાતી', flag: '🇮🇳' },
+        { code: 'kn', name: 'ಕನ್ನಡ', flag: '🇮🇳' },
+        { code: 'ml', name: 'മലയാളം', flag: '🇮🇳' },
+        { code: 'pa', name: 'ਪੰਜਾਬੀ', flag: '🇮🇳' },
+        { code: 'es', name: 'Español', flag: '🇪🇸' },
+        { code: 'fr', name: 'Français', flag: '🇫🇷' },
+        { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+        { code: 'zh', name: '中文', flag: '🇨🇳' },
+        { code: 'ja', name: '日本語', flag: '🇯🇵' },
+        { code: 'ar', name: 'العربية', flag: '🇸🇦' },
+    ];
 
     useEffect(() => {
         const handleScroll = () => {
@@ -22,12 +43,62 @@ const Header = () => {
         return () => window.removeEventListener("scroll", handleScroll);
     }, []);
 
+    // Initialize Google Translate
+    useEffect(() => {
+        const initGoogleTranslate = () => {
+            if (typeof google !== 'undefined' && google.translate) {
+                // Initialize desktop translate element
+                new google.translate.TranslateElement({
+                    pageLanguage: 'en',
+                    includedLanguages: languages.map(lang => lang.code).join(','),
+                    layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+                }, 'google_translate_element');
+
+                // Initialize mobile translate element
+                new google.translate.TranslateElement({
+                    pageLanguage: 'en',
+                    includedLanguages: languages.map(lang => lang.code).join(','),
+                    layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+                }, 'google_translate_element_mobile');
+            }
+        };
+
+        // Load Google Translate script
+        if (!document.querySelector('script[src*="translate.google.com"]')) {
+            const script = document.createElement('script');
+            script.type = 'text/javascript';
+            script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+            document.head.appendChild(script);
+        }
+
+        // Set up global callback
+        window.googleTranslateElementInit = initGoogleTranslate;
+
+        return () => {
+            // Cleanup if needed
+        };
+    }, []);
+
     const navLinks = [
         { label: "Traceability", href: "#how-it-works", isExternal: false },
         { label: "Stakeholders", href: "#roles", isExternal: false },
         { label: "Features", href: "#features", isExternal: false },
         { label: "FAQ", href: "#faq", isExternal: false },
     ];
+
+    const handleLanguageChange = (languageCode) => {
+        setSelectedLanguage(languageCode);
+        setTranslateOpen(false);
+        
+        // Change Google Translate language
+        if (typeof google !== 'undefined' && google.translate) {
+            const selectElement = document.querySelector('.goog-te-combo');
+            if (selectElement) {
+                selectElement.value = languageCode;
+                selectElement.dispatchEvent(new Event('change'));
+            }
+        }
+    };
 
     const handleNavClick = (href, isExternal) => {
         setMobileOpen(false);
@@ -50,58 +121,107 @@ const Header = () => {
 
     return (
         <header
-            className={`wrapper sticky top-0 z-50 transition-all duration-300 ${scrolled
-                ? "bg-white/95 backdrop-blur-md border-b border-green-100 py-2.5 shadow-sm"
-                : "bg-transparent py-4"
+            className={`sticky top-0 z-50 transition-all duration-500 ${scrolled
+                ? "bg-white/90 backdrop-blur-xl border-b border-emerald-100/50 py-3 shadow-lg shadow-emerald-500/5"
+                : "bg-transparent py-6"
                 }`}
         >
-            <div className="container mx-auto flex items-center justify-between px-4">
+            <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 lg:px-8">
+                {/* Logo - Modern Design */}
                 <Link
                     to="/"
-                    className="flex items-center gap-2.5 group transition-transform hover:scale-[1.02]"
+                    className="flex items-center gap-4 group transition-all duration-300 hover:scale-105"
                     onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
                 >
-                    <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-green-600 to-emerald-500 flex items-center justify-center shadow-md shadow-green-100 rotate-2 group-hover:rotate-0 transition-all duration-500">
-                        <Wheat className="h-5 w-5 text-white" />
+                    <div className="relative">
+                        <div className="w-16 h-10 bg-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/10 transition-all duration-500 group-hover:shadow-emerald-500/20 group-hover:shadow-2xl border border-emerald-100">
+                            <img src="/logo.svg" alt="AgriTrack Logo" className="w-full h-full object-contain" />
+                        </div>
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full flex items-center justify-center shadow-lg">
+                            <Sprout className="w-2 h-2 text-white" />
+                        </div>
                     </div>
-                    <div className="flex flex-col -gap-1">
-                        <span className="text-xl font-normal tracking-tight text-slate-800 leading-none">
-                            Crop<span className="text-green-600">Chain</span>
+                    <div className="flex flex-col">
+                        <span className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent leading-none">
+                            AgriTrack
                         </span>
-                        <span className="text-[9px] uppercase tracking-[0.2em] font-normal text-slate-400">Blockchain Ledger</span>
+                        <span className="text-xs font-medium text-gray-500 tracking-wide uppercase">Smart Agricultural Supply Chain</span>
                     </div>
                 </Link>
 
                 {/* Desktop Nav */}
-                <nav className="hidden items-center gap-10 lg:flex">
+                <nav className="hidden items-center gap-12 lg:flex">
                     <div className="flex items-center gap-8">
                         {navLinks.map((link) => (
-                            <button
+                            <motion.button
                                 key={link.label}
                                 onClick={() => handleNavClick(link.href, link.isExternal)}
-                                className="relative text-[14px] font-normal text-slate-600 transition-colors hover:text-green-600 group py-2"
+                                className="relative text-[15px] font-medium text-gray-700 transition-all duration-300 hover:text-emerald-600 hover:scale-105 py-2 px-4 rounded-lg hover:bg-emerald-50/50"
+                                whileHover={{ y: -2 }}
+                                transition={{ type: "spring", stiffness: 400, damping: 17 }}
                             >
                                 {link.label}
-                                <span className="absolute -bottom-0 left-0 h-0.5 w-0 bg-green-600 transition-all duration-300 group-hover:w-full" />
-                            </button>
+                                <span className="absolute -bottom-0 left-0 h-0.5 w-0 bg-gradient-to-r from-emerald-500 to-green-600 transition-all duration-300 group-hover:w-full" />
+                            </motion.button>
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-3 ml-4 border-l pl-10 border-green-100">
-                        {/* Google Translate Button ... same as before ... */}
+                    <div className="flex items-center gap-4 ml-6 pl-8 border-l border-emerald-100">
+                        {/* Enhanced Language Selector */}
                         <div className="relative">
                             <button
                                 onClick={() => setTranslateOpen(!translateOpen)}
-                                className="p-2 hover:bg-green-50 rounded-lg transition-colors"
-                                title="Translate"
+                                className="flex items-center gap-2 p-3 bg-gradient-to-r from-emerald-50 to-green-50 hover:from-emerald-100 hover:to-green-100 rounded-xl transition-all duration-300 hover:scale-105 border border-emerald-200/50"
+                                title="Select Language"
                             >
-                                <Languages className="h-5 w-5 text-green-600" />
+                                <Globe className="h-5 w-5 text-emerald-600" />
+                                <ChevronDown className={`h-4 w-4 text-emerald-600 transition-transform duration-300 ${translateOpen ? 'rotate-180' : ''}`} />
                             </button>
-                            {translateOpen && (
-                                <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-lg border border-green-100 p-3 min-w-[200px] z-50">
-                                    <div id="google_translate_element"></div>
-                                </div>
-                            )}
+                            
+                            <AnimatePresence>
+                                {translateOpen && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                                        className="absolute top-full right-0 mt-3 bg-white rounded-2xl shadow-2xl border border-emerald-100 p-4 min-w-[320px] z-50"
+                                    >
+                                        <div className="mb-4">
+                                            <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                                                <Globe className="h-4 w-4 text-emerald-600" />
+                                                Select Language
+                                            </h4>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-2 gap-2 mb-4 max-h-64 overflow-y-auto">
+                                            {languages.map((language) => (
+                                                <motion.button
+                                                    key={language.code}
+                                                    onClick={() => handleLanguageChange(language.code)}
+                                                    className={`flex items-center gap-3 p-3 rounded-xl transition-all duration-200 hover:scale-105 ${
+                                                        selectedLanguage === language.code 
+                                                            ? 'bg-emerald-100 border-2 border-emerald-300' 
+                                                            : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
+                                                    }`}
+                                                    whileHover={{ scale: 1.05 }}
+                                                    whileTap={{ scale: 0.95 }}
+                                                >
+                                                    <span className="text-xl">{language.flag}</span>
+                                                    <div className="text-left">
+                                                        <p className="font-medium text-gray-900 text-sm">{language.name}</p>
+                                                        <p className="text-xs text-gray-500">{language.code.toUpperCase()}</p>
+                                                    </div>
+                                                </motion.button>
+                                            ))}
+                                        </div>
+
+                                        <div className="border-t pt-3">
+                                            <div id="google_translate_element" className="min-h-[40px]"></div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
 
                         {isAuthenticated ? (
@@ -156,16 +276,44 @@ const Header = () => {
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
                         transition={{ duration: 0.3 }}
-                        className="lg:hidden overflow-hidden bg-white border-t border-green-100"
+                        className="lg:hidden overflow-hidden bg-white/95 backdrop-blur-xl border-t border-emerald-100"
                     >
                         <div className="container mx-auto px-4 py-8">
-                            {/* Mobile Translate */}
-                            <div className="mb-6 p-3 bg-green-50 rounded-lg">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Languages className="h-4 w-4 text-green-600" />
-                                    <span className="text-sm font-normal text-slate-700">Translate</span>
+                            {/* Enhanced Mobile Translate */}
+                            <div className="mb-6 p-4 bg-gradient-to-r from-emerald-50 to-green-50 rounded-2xl border border-emerald-200">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <Globe className="h-5 w-5 text-emerald-600" />
+                                        <span className="text-sm font-semibold text-gray-900">Language</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-emerald-600">
+                                            {languages.find(l => l.code === selectedLanguage)?.flag || '🌐'}
+                                        </span>
+                                        <span className="text-xs text-gray-500">
+                                            {selectedLanguage?.toUpperCase()}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div id="google_translate_element_mobile"></div>
+                                
+                                <div className="grid grid-cols-3 gap-2 mb-4 max-h-48 overflow-y-auto">
+                                    {languages.slice(0, 9).map((language) => (
+                                        <button
+                                            key={language.code}
+                                            onClick={() => handleLanguageChange(language.code)}
+                                            className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all duration-200 ${
+                                                selectedLanguage === language.code 
+                                                    ? 'bg-emerald-100 border-2 border-emerald-300' 
+                                                    : 'bg-white border-2 border-gray-200 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            <span className="text-lg">{language.flag}</span>
+                                            <span className="text-xs text-gray-700 text-center">{language.code.toUpperCase()}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                                
+                                <div id="google_translate_element_mobile" className="min-h-[40px]"></div>
                             </div>
 
                             <div className="flex flex-col space-y-1 mb-8">
@@ -196,7 +344,7 @@ const Header = () => {
                                     </Button>
                                 </Link>
                                 <p className="text-center text-slate-400 text-sm font-normal">
-                                    Already using CropConnect? <Link to="/login" className="text-green-600 font-normal">Login</Link>
+                                    Already using FarmFlow? <Link to="/login" className="text-green-600 font-normal">Login</Link>
                                 </p>
                             </div>
                         </div>
@@ -210,7 +358,7 @@ const Header = () => {
                     if (typeof google !== 'undefined' && google.translate) {
                         new google.translate.TranslateElement({
                             pageLanguage: 'en',
-                            includedLanguages: 'en,hi,or,bn,te,ta,mr,gu,kn,ml,pa',
+                            includedLanguages: '${languages.map(lang => lang.code).join(',')}',
                             layout: google.translate.TranslateElement.InlineLayout.SIMPLE
                         }, 'google_translate_element_mobile');
                     }

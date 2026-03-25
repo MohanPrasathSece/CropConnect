@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Sprout,
     TrendingUp,
@@ -42,13 +42,29 @@ const FarmerDashboard = () => {
     const [recentCrops, setRecentCrops] = useState([]);
     const [deletingId, setDeletingId] = useState(null);
 
+    const userEmail = user?.email;
+
+    const refreshDashboard = useCallback(async () => {
+        if (!userEmail) return;
+        const response = await farmerApi.getDashboard(userEmail);
+        if (response.data?.success) {
+            setData(response.data.data);
+        }
+    }, [userEmail]);
+
+    const refreshRecentCrops = useCallback(async () => {
+        if (!userEmail) return;
+        const res = await farmerApi.getCrops(userEmail);
+        if (res.data?.success) {
+            const crops = res.data.crops || res.data.data?.crops || [];
+            setRecentCrops(crops.slice(0, 4));
+        }
+    }, [userEmail]);
+
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const response = await farmerApi.getDashboard(user.email);
-                if (response.data.success) {
-                    setData(response.data.data);
-                }
+                await refreshDashboard();
             } catch (error) {
                 console.error('Error fetching dashboard:', error);
             } finally {
@@ -56,30 +72,26 @@ const FarmerDashboard = () => {
             }
         };
 
-        if (user?.email) fetchDashboardData();
-    }, [user]);
+        if (userEmail) fetchDashboardData();
+    }, [refreshDashboard, userEmail]);
 
     useEffect(() => {
         const fetchRecentCrops = async () => {
             try {
-                const res = await farmerApi.getCrops(user.email);
-                if (res.data?.success) {
-                    const crops = res.data.crops || res.data.data?.crops || [];
-                    setRecentCrops(crops.slice(0, 4));
-                }
+                await refreshRecentCrops();
             } catch (e) {
                 console.error('Error fetching recent crops:', e);
             }
         };
 
-        if (user?.email) fetchRecentCrops();
-    }, [user]);
+        if (userEmail) fetchRecentCrops();
+    }, [refreshRecentCrops, userEmail]);
 
-    const handleEdit = (crop) => {
+    const handleEdit = useCallback((crop) => {
         navigate('/farmer/upload', { state: { editCrop: crop } });
-    };
+    }, [navigate]);
 
-    const handleDelete = async (crop) => {
+    const handleDelete = useCallback(async (crop) => {
         const ok = window.confirm(`Delete "${crop?.name}"? This will remove the listing.`);
         if (!ok) return;
 
@@ -88,17 +100,48 @@ const FarmerDashboard = () => {
             await cropApi.delete(crop.id);
 
             setRecentCrops((prev) => prev.filter((c) => c.id !== crop.id));
-            const response = await farmerApi.getDashboard(user.email);
-            if (response.data.success) {
-                setData(response.data.data);
-            }
+            await refreshDashboard();
         } catch (e) {
             console.error('Error deleting crop:', e);
             alert('Failed to delete crop. Please try again.');
         } finally {
             setDeletingId(null);
         }
-    };
+    }, [refreshDashboard]);
+
+    const { stats, recentActivity, cropStatusOverview } = data || {};
+
+    const earningsText = useMemo(() => {
+        const value = parseFloat(stats?.totalRevenue || 0);
+        return `₹${value.toLocaleString()}`;
+    }, [stats?.totalRevenue]);
+
+    const balanceText = useMemo(() => {
+        const value = parseFloat(data?.farmer?.wallet_balance || 0);
+        return `₹${value.toLocaleString()}`;
+    }, [data?.farmer?.wallet_balance]);
+
+    const formattedCrops = useMemo(() => {
+        return recentCrops.map(crop => ({
+            ...crop,
+            displayPrice: crop.price_per_unit || crop.pricePerUnit,
+            displayStatus: crop.status || 'listed'
+        }));
+    }, [recentCrops]);
+
+    const handleViewAll = useCallback(() => {
+        navigate('/farmer/crops');
+    }, [navigate]);
+
+    const handleViewHistory = useCallback(() => {
+        // Placeholder for history navigation
+        console.log('Navigate to history');
+    }, []);
+
+    const handleViewRegionalDetails = useCallback(() => {
+        // Placeholder for regional details
+        console.log('Navigate to regional details');
+    }, []);
 
     if (loading) {
         return (
@@ -107,8 +150,6 @@ const FarmerDashboard = () => {
             </div>
         );
     }
-
-    const { stats, recentActivity, cropStatusOverview } = data || {};
 
     return (
         <div className="w-full space-y-8 pb-12 animate-in fade-in duration-500">
@@ -123,7 +164,7 @@ const FarmerDashboard = () => {
                     <div className="space-y-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Earnings</p>
                         <div className="flex items-center gap-2">
-                            <span className="text-xl font-bold text-slate-900">₹{parseFloat(stats?.totalRevenue || 0).toLocaleString()}</span>
+                            <span className="text-xl font-bold text-slate-900">{earningsText}</span>
                             <span className="flex items-center text-[10px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
                                 <ArrowUpRight className="w-3 h-3" /> 12%
                             </span>
@@ -132,7 +173,7 @@ const FarmerDashboard = () => {
                     <div className="w-px bg-slate-100" />
                     <div className="space-y-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Available Balance</p>
-                        <p className="text-xl font-bold text-emerald-600">₹{parseFloat(data?.farmer?.wallet_balance || 0).toLocaleString()}</p>
+                        <p className="text-xl font-bold text-emerald-600">{balanceText}</p>
                     </div>
                 </div>
             </div>
@@ -141,16 +182,16 @@ const FarmerDashboard = () => {
             <div className="flex flex-col sm:flex-row gap-3">
                 <Link
                     to="/farmer/upload"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-emerald-700 shadow-sm active:scale-95"
+                    className="inline-flex items-center justify-center gap-2.5 rounded-xl bg-emerald-600 px-7 py-4 text-base font-semibold text-white transition-all hover:bg-emerald-700 shadow-sm hover:shadow-md active:scale-95"
                 >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-5 w-5" />
                     Add Product
                 </Link>
                 <Link
                     to="/farmer/crops"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-50 border border-slate-200 shadow-sm active:scale-95"
+                    className="inline-flex items-center justify-center gap-2.5 rounded-xl bg-white px-7 py-4 text-base font-semibold text-slate-700 transition-all hover:bg-slate-50 border border-slate-200 shadow-sm hover:shadow-md active:scale-95"
                 >
-                    <Sprout className="h-4 w-4 text-emerald-600" />
+                    <Sprout className="h-5 w-5 text-emerald-600" />
                     My Products
                 </Link>
             </div>
@@ -265,8 +306,11 @@ const FarmerDashboard = () => {
                             </div>
                         ))}
                     </div>
-                    <button className="w-full py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
-                        View History <ChevronRight className="w-3 h-3" />
+                    <button 
+                        onClick={handleViewHistory}
+                        className="w-full py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 uppercase tracking-widest hover:bg-slate-100 hover:border-slate-300 transition-all flex items-center justify-center gap-2 active:scale-95"
+                    >
+                        View History <ChevronRight className="w-4 h-4" />
                     </button>
                 </div>
             </div>
@@ -276,7 +320,9 @@ const FarmerDashboard = () => {
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col space-y-6">
                     <div className="flex items-center justify-between">
                         <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest leading-none">Harvest Status</h3>
-                        <button className="p-1.5 text-slate-400 hover:text-slate-600 transition-colors"><MoreHorizontal className="w-4 h-4" /></button>
+                        <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-lg transition-all">
+                            <MoreHorizontal className="w-4 h-4" />
+                        </button>
                     </div>
 
                     <div className="flex-1 flex flex-col justify-center space-y-6">
@@ -309,8 +355,11 @@ const FarmerDashboard = () => {
                         <h4 className="text-lg font-bold text-white tracking-tight">Market demand for Wheat is increasing!</h4>
                         <p className="text-emerald-50 text-[11px] font-medium leading-relaxed opacity-80">Localized data suggests preparing your Wheat harvest for listing in the next 48 hours for 5-8% better pricing released by regional hubs.</p>
                     </div>
-                    <button className="mt-4 relative z-10 w-full py-3 bg-white text-emerald-600 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-50 transition-colors flex items-center justify-center gap-2">
-                        View Regional Details <ChevronRight className="w-3 h-3" />
+                    <button 
+                        onClick={handleViewRegionalDetails}
+                        className="mt-4 relative z-10 w-full py-3.5 bg-white text-emerald-600 rounded-xl text-sm font-bold uppercase tracking-widest hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 active:scale-95"
+                    >
+                        View Regional Details <ChevronRight className="w-4 h-4" />
                     </button>
                 </div>
             </div>
@@ -319,29 +368,32 @@ const FarmerDashboard = () => {
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-5">
                 <div className="flex items-center justify-between gap-4">
                     <h3 className="text-sm font-bold text-slate-800 uppercase tracking-widest leading-none">Recent Products</h3>
-                    <Link to="/farmer/crops" className="text-xs font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-widest">
+                    <button 
+                        onClick={handleViewAll}
+                        className="text-sm font-bold text-emerald-600 hover:text-emerald-700 uppercase tracking-widest hover:bg-emerald-50 px-3 py-1 rounded-lg transition-all active:scale-95"
+                    >
                         View All
-                    </Link>
+                    </button>
                 </div>
 
-                {recentCrops?.length ? (
+                {formattedCrops?.length ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {recentCrops.map((crop) => (
+                        {formattedCrops.map((crop) => (
                             <div key={crop.id} className="rounded-xl border border-slate-200 bg-slate-50/40 p-4 flex items-start justify-between gap-4">
                                 <div className="min-w-0">
                                     <p className="text-sm font-bold text-slate-900 truncate">{crop.name}</p>
                                     <p className="text-xs text-slate-500 font-medium mt-1">
-                                        {crop.quantity} {crop.unit} · ₹{crop.price_per_unit || crop.pricePerUnit}
+                                        {crop.quantity} {crop.unit} · ₹{crop.displayPrice}
                                     </p>
                                     <div className="mt-2">
-                                        <StatusBadge status={crop.status} />
+                                        <StatusBadge status={crop.displayStatus} />
                                     </div>
                                 </div>
                                 <div className="flex gap-2 shrink-0">
                                     <button
                                         type="button"
                                         onClick={() => handleEdit(crop)}
-                                        className="p-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors active:scale-95"
+                                        className="p-2.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-all active:scale-95 shadow-sm hover:shadow-md"
                                         title="Edit"
                                     >
                                         <Pencil className="w-4 h-4" />
@@ -350,7 +402,7 @@ const FarmerDashboard = () => {
                                         type="button"
                                         disabled={deletingId === crop.id}
                                         onClick={() => handleDelete(crop)}
-                                        className="p-2 rounded-lg bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 transition-colors active:scale-95 disabled:opacity-60"
+                                        className="p-2.5 rounded-lg bg-red-50 border border-red-100 text-red-600 hover:bg-red-100 transition-all active:scale-95 shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                                         title="Delete"
                                     >
                                         {deletingId === crop.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
@@ -360,7 +412,9 @@ const FarmerDashboard = () => {
                         ))}
                     </div>
                 ) : (
-                    <div className="text-sm text-slate-500">No products yet. Click “Add Product” to list your first harvest.</div>
+                    <div className="text-sm text-slate-500 text-center py-8 bg-slate-50 rounded-xl border border-slate-100">
+                        No products yet. Click "Add Product" to list your first harvest.
+                    </div>
                 )}
             </div>
         </div>

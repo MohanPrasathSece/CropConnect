@@ -11,6 +11,7 @@ const router = express.Router();
 router.get('/dashboard/:email', async (req, res) => {
     try {
         const { email } = req.params;
+        console.log(`[FarmerDashboard] Fetching data for: ${email}`);
 
         // 1. Find farmer profile
         const { data: farmer, error: farmerError } = await supabase
@@ -20,11 +21,14 @@ router.get('/dashboard/:email', async (req, res) => {
             .single();
 
         if (farmerError || !farmer) {
+            console.error(`[FarmerDashboard] Profile NOT FOUND for: ${email}`, farmerError);
             return res.status(404).json({
                 success: false,
                 message: 'Farmer profile not found'
             });
         }
+
+        console.log(`[FarmerDashboard] Found farmer profile: ${farmer.id}`);
 
         const farmerId = farmer.id;
 
@@ -32,15 +36,20 @@ router.get('/dashboard/:email', async (req, res) => {
         const { data: crops, error: cropsError } = await supabase
             .from('crops')
             .select('status, quantity, price_per_unit')
-            .eq('farmer_id', farmerId);
+            .eq('farmer_id', farmerId)
 
-        if (cropsError) throw cropsError;
 
-        const totalCrops = crops.length;
-        const listedCrops = crops.filter(c => c.status === 'listed').length;
-        const soldCrops = crops.filter(c => c.status === 'sold').length;
-        // Status 'collected' means it's with an aggregator but not necessarily sold yet
-        const collectedCrops = crops.filter(c => c.status === 'collected').length;
+        if (cropsError) {
+            console.error(`[FarmerDashboard] Crops query ERROR:`, cropsError);
+            throw cropsError;
+        }
+
+        console.log(`[FarmerDashboard] Found ${crops?.length || 0} crops`);
+
+        const totalCrops = crops?.length || 0;
+        const listedCrops = crops?.filter(c => c.status === 'listed').length || 0;
+        const soldCrops = crops?.filter(c => c.status === 'sold').length || 0;
+        const collectedCrops = crops?.filter(c => c.status === 'collected').length || 0;
 
         // 3. Get Orders Stats
         const { data: orders, error: ordersError } = await supabase
@@ -48,10 +57,15 @@ router.get('/dashboard/:email', async (req, res) => {
             .select('*')
             .eq('seller_id', farmerId);
 
-        if (ordersError) throw ordersError;
+        if (ordersError) {
+            console.error(`[FarmerDashboard] Orders query ERROR:`, ordersError);
+            throw ordersError;
+        }
 
-        const activeOrders = orders.filter(o => ['pending', 'processing', 'shipped'].includes(o.status)).length;
-        const completedSales = orders.filter(o => o.status === 'delivered').length;
+        console.log(`[FarmerDashboard] Found ${orders?.length || 0} orders`);
+
+        const activeOrders = orders?.filter(o => ['pending', 'processing', 'shipped'].includes(o.status)).length || 0;
+        const completedSales = orders?.filter(o => o.status === 'delivered').length || 0;
 
         // Calculate total revenue and monthly earnings
         let totalRevenue = 0;
@@ -68,22 +82,30 @@ router.get('/dashboard/:email', async (req, res) => {
             monthlyEarningsMap[monthName] = 0;
         }
 
-        orders.forEach(order => {
+        orders?.forEach(order => {
             if (order.status === 'delivered' || order.payment_status === 'completed') {
-                totalRevenue += parseFloat(order.total_amount || 0);
+                const amount = parseFloat(order.total_amount || 0);
+                totalRevenue += isNaN(amount) ? 0 : amount;
 
-                const date = new Date(order.order_date || order.created_at);
-                const monthName = months[date.getMonth()];
-                if (monthlyEarningsMap[monthName] !== undefined) {
-                    monthlyEarningsMap[monthName] += parseFloat(order.total_amount || 0);
+                const dateStr = order.order_date || order.created_at;
+                if (dateStr) {
+                    const date = new Date(dateStr);
+                    if (!isNaN(date.getTime())) {
+                        const monthName = months[date.getMonth()];
+                        if (monthlyEarningsMap[monthName] !== undefined) {
+                            monthlyEarningsMap[monthName] += isNaN(amount) ? 0 : amount;
+                        }
+                    }
                 }
             }
         });
 
         const chartData = last7Months.map(month => ({
             name: month,
-            sales: Math.round(monthlyEarningsMap[month])
+            sales: Math.round(monthlyEarningsMap[month] || 0)
         }));
+
+        console.log(`[FarmerDashboard] Revenue calculated: ${totalRevenue}`);
 
         // 4. Get Recent Activity
         // We combine recent crops and recent orders for activity
@@ -91,6 +113,7 @@ router.get('/dashboard/:email', async (req, res) => {
             .from('crops')
             .select('name, status, created_at')
             .eq('farmer_id', farmerId)
+
             .order('created_at', { ascending: false })
             .limit(5);
 
@@ -142,11 +165,15 @@ router.get('/dashboard/:email', async (req, res) => {
             .slice(0, 5);
 
         // Get some inventory data
-        const inventory = crops.slice(0, 3).map(c => ({
-            name: c.name,
-            percentage: Math.min(100, Math.round((parseFloat(c.quantity) / (parseFloat(c.quantity) + 100)) * 100))
-        }));
-
+        const inventory = (crops || []).slice(0, 3).map(c => {
+            const qty = parseFloat(c.quantity || 0);
+            const total = qty + 100;
+            const percentage = total > 0 ? Math.min(100, Math.round((qty / total) * 100)) : 0;
+            return {
+                name: c.name || 'Commodity',
+                percentage
+            };
+        });
         res.json({
             success: true,
             data: {
@@ -194,7 +221,7 @@ router.get('/crops/:email', async (req, res) => {
     try {
         const { email } = req.params;
         console.log('Fetching crops for email:', email);
-        
+
         const { data: farmer, error: farmerError } = await supabase
             .from('profiles')
             .select('id')
@@ -217,7 +244,7 @@ router.get('/crops/:email', async (req, res) => {
             .from('crops')
             .select('*')
             .eq('farmer_id', farmer.id)
-            .neq('status', 'inactive')
+
             .order('created_at', { ascending: false });
 
         if (error) {
@@ -384,6 +411,7 @@ router.get('/reports/:email', async (req, res) => {
             .from('crops')
             .select('id, name, variety, ai_analysis, images, harvest_date')
             .eq('farmer_id', farmer.id)
+
             .not('ai_analysis', 'is', null);
 
         // 2. Get reports from collections (Quality assessment)

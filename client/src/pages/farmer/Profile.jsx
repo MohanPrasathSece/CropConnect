@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
-import { MapPin, Phone, Mail, Award, Calendar, Edit, Loader2, ArrowLeft, ShieldCheck, User, Sparkles } from "lucide-react";
+import { Camera, MapPin, Phone, Mail, Wheat, ShieldCheck, Edit3, Save, X, Loader2, AlertCircle, Calendar, Award, Edit, ArrowLeft, User, Sparkles } from "lucide-react";
 import heroFarm from "../../assets/hero-farm.jpg";
 import { useAuth } from "../../contexts/AuthContext";
 import { farmerApi } from "../../utils/api";
+import { formatLocation } from "../../utils/format";
 import { useNavigate } from "react-router-dom";
 
 export default function Profile() {
@@ -19,7 +20,7 @@ export default function Profile() {
         specialties: ''
     });
     const [saving, setSaving] = useState(false);
-    
+
     // Ref to store AbortController
     const abortController = useRef();
 
@@ -27,7 +28,7 @@ export default function Profile() {
         if (user?.email) {
             fetchProfile();
         }
-        
+
         // Cleanup function to abort pending requests
         return () => {
             if (abortController.current) {
@@ -233,7 +234,7 @@ export default function Profile() {
                                             <div className="min-w-0">
                                                 <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">Location</p>
                                                 <p className="text-sm text-slate-900 font-medium mt-1 leading-relaxed">
-                                                    {profile?.address?.full_address || profile?.address?.fullAddress || (typeof profile?.address === 'string' ? profile.address : 'Primary Hub')}
+                                                    {formatLocation(profile?.address) || 'Primary Hub'}
                                                 </p>
                                             </div>
                                         </div>

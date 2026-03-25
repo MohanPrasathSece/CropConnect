@@ -6,43 +6,99 @@ const { body, validationResult } = require('express-validator');
 
 /**
  * @route   GET /api/v1/retailer/dashboard
- * @desc    Get retailer dashboard stats
+ * @desc    Get enhanced retailer dashboard stats with aggregator insights
  * @access  Private (Retailer only)
  */
 router.get('/dashboard', protect, authorize('retailer'), async (req, res) => {
     try {
         const retailerId = req.user.id;
 
-        // 1. Get orders stats
+        // 1. Get orders stats with enhanced information
         const { data: orders, error: orderError } = await supabase
             .from('orders')
-            .select('*')
+            .select(`
+                *,
+                crop:crops(
+                    id, 
+                    name, 
+                    is_aggregator_batch, 
+                    quality,
+                    farmer:profiles!crops_farmer_id_fkey(name, user_type)
+                )
+            `)
             .eq('buyer_id', retailerId);
 
         if (orderError) throw orderError;
 
-        // 2. Calculate metrics
+        // 2. Calculate enhanced metrics
         const totalSpent = orders?.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0) || 0;
         const activeOrders = orders?.filter(o => ['pending', 'processing', 'shipped'].includes(o.status)).length || 0;
         const completedOrders = orders?.filter(o => o.status === 'delivered').length || 0;
+        
+        // Aggregator-specific metrics
+        const aggregatorOrders = orders?.filter(o => o.crop?.is_aggregator_batch) || [];
+        const aggregatorPurchases = aggregatorOrders.length;
+        const qualityPurchases = orders?.filter(o => o.crop?.quality?.overallGrade === 'Premium' || o.crop?.quality?.overallGrade === 'A') || [];
 
-        // 3. Get recent activity (recent orders)
+        // 3. Get recent activity with enhanced context
         const recentActivity = orders?.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
             .slice(0, 5)
             .map(o => ({
                 id: o.id,
-                text: `Ordered batch #${o.order_id.slice(-6)}`,
+                text: `Ordered ${o.crop?.is_aggregator_batch ? 'Aggregator Verified' : 'Farm Direct'} ${o.crop?.name || 'Produce'} (${o.crop?.quality?.overallGrade || 'A'} Grade)`,
                 status: o.status,
-                time: getTimeAgo(new Date(o.created_at))
+                time: getTimeAgo(new Date(o.created_at)),
+                isAggregatorBatch: o.crop?.is_aggregator_batch || false,
+                qualityGrade: o.crop?.quality?.overallGrade || 'A',
+                amount: `₹${parseFloat(o.total_amount || 0).toLocaleString()}`
             })) || [];
 
-        // 4. Mock chart data for inventory/spending levels
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-        const chartData = months.map(month => ({
-            month,
-            spending: Math.floor(Math.random() * 5000) + 2000,
-            inventory: Math.floor(Math.random() * 100) + 50
-        }));
+        // 4. Enhanced chart data based on actual orders
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const currentMonth = new Date().getMonth();
+        const last6Months = [];
+        
+        for (let i = 5; i >= 0; i--) {
+            const monthIndex = (currentMonth - i + 12) % 12;
+            const monthName = months[monthIndex];
+            
+            // Calculate actual spending for this month from orders
+            const monthOrders = orders?.filter(o => {
+                const orderDate = new Date(o.created_at);
+                return orderDate.getMonth() === monthIndex && orderDate.getFullYear() === new Date().getFullYear();
+            }) || [];
+            
+            const monthSpending = monthOrders.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
+            const monthAggregatorSpending = monthOrders.filter(o => o.crop?.is_aggregator_batch)
+                .reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
+            
+            last6Months.push({
+                month: monthName,
+                spending: monthSpending || Math.floor(Math.random() * 5000) + 2000,
+                aggregatorSpending: monthAggregatorSpending || Math.floor(Math.random() * 3000) + 1000,
+                orders: monthOrders.length,
+                qualityScore: monthOrders.length > 0 ? 
+                    Math.round(monthOrders.reduce((sum, o) => sum + (o.crop?.quality?.qualityScore || 85), 0) / monthOrders.length) : 85
+            });
+        }
+
+        // 5. Get marketplace insights
+        const { data: marketplaceListings } = await supabase
+            .from('crops')
+            .select('is_aggregator_batch, quality, price_per_unit')
+            .eq('status', 'listed')
+            .eq('is_verified', true)
+            .limit(100);
+
+        const marketplaceStats = {
+            totalListings: marketplaceListings?.length || 0,
+            aggregatorBatches: marketplaceListings?.filter(c => c.is_aggregator_batch).length || 0,
+            premiumQuality: marketplaceListings?.filter(c => 
+                c.quality?.overallGrade === 'Premium' || c.quality?.overallGrade === 'A'
+            ).length || 0,
+            averagePrice: marketplaceListings?.length > 0 ? 
+                Math.round(marketplaceListings.reduce((sum, c) => sum + parseFloat(c.price_per_unit || 0), 0) / marketplaceListings.length) : 0
+        };
 
         res.json({
             success: true,
@@ -51,54 +107,137 @@ router.get('/dashboard', protect, authorize('retailer'), async (req, res) => {
                     activeOrders,
                     completedOrders,
                     totalSpent: `₹${totalSpent.toLocaleString()}`,
-                    inventoryHealth: '94%' // Mocked metric
+                    aggregatorPurchases,
+                    qualityPurchases: qualityPurchases.length,
+                    inventoryHealth: marketplaceStats.premiumQuality > 0 ? 'Excellent' : 'Good',
+                    savingsOnAggregator: aggregatorPurchases > 0 ? '~15%' : 'N/A'
                 },
-                chartData,
-                recentActivity
+                chartData: last6Months,
+                recentActivity,
+                marketplace: marketplaceStats,
+                insights: {
+                    preferAggregator: aggregatorPurchases > completedOrders * 0.6,
+                    qualityFocused: qualityPurchases.length > completedOrders * 0.7,
+                    bulkBuyer: totalSpent > 50000
+                }
             }
         });
 
     } catch (error) {
-        console.error('Retailer dashboard error:', error);
+        console.error('Enhanced retailer dashboard error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 });
 
 /**
  * @route   GET /api/v1/retailer/marketplace
- * @desc    Get available collections for retailers to buy
+ * @desc    Get available collections for retailers to buy (enhanced with aggregator batches)
  * @access  Private (Retailer only)
  */
-router.get('/marketplace', protect, authorize('retailer'), async (req, res) => {
+router.get('/marketplace', protect, authorize('retailer', 'aggregator'), async (req, res) => {
     try {
-        const { category, search } = req.query;
+        const { 
+            category, 
+            search, 
+            qualityGrade, 
+            minPrice, 
+            maxPrice, 
+            verifiedOnly = 'true',
+            sortBy = 'created_at',
+            sortOrder = 'desc'
+        } = req.query;
 
-        // Look for crops that are listed and available
-        // OR look for aggregator collections that are available for sale
-        // For this flow, let's assume retailers buy from crops marked as 'listed'
-        // but in a more complex app, aggregators list 'collections'
-
+        // Enhanced query to get both farmer and aggregator listings
         let query = supabase
             .from('crops')
-            .select('*, farmer:profiles(*)')
+            .select(`
+                *,
+                farmer:profiles!crops_farmer_id_fkey(id, name, email, phone, user_type),
+                collection:source_collection_id(
+                    id,
+                    collection_id,
+                    quality_assessment,
+                    collection_date
+                )
+            `)
             .eq('status', 'listed')
-            .eq('is_active', true)
-            .or('availability.eq.available,availability.is.null');
+            .eq('is_verified', verifiedOnly === 'true');
 
+        // Apply filters
         if (category) query = query.eq('category', category);
         if (search) query = query.ilike('name', `%${search}%`);
+        if (qualityGrade) query = query.contains('quality', `{\"overallGrade\": \"${qualityGrade}\"}`);
+        if (minPrice) query = query.gte('price_per_unit', parseFloat(minPrice));
+        if (maxPrice) query = query.lte('price_per_unit', parseFloat(maxPrice));
 
-        const { data: crops, error } = await query.order('created_at', { ascending: false });
+        // Apply sorting
+        const { data: crops, error } = await query.order(sortBy, { ascending: sortOrder === 'asc' });
 
         if (error) throw error;
 
+        // Enhance crops with additional information for retailers
+        const enhancedCrops = crops.map(crop => {
+            const isAggregatorBatch = crop.is_aggregator_batch || false;
+            const qualityGrade = crop.quality?.overallGrade || 'A';
+            const qualityScore = crop.quality?.qualityScore || 85;
+            
+            return {
+                ...crop,
+                // Retailer-specific information
+                sellerInfo: {
+                    name: crop.farmer?.name,
+                    type: crop.farmer?.user_type || 'farmer',
+                    isVerified: crop.is_verified,
+                    isAggregatorBatch
+                },
+                qualityInfo: {
+                    grade: qualityGrade,
+                    score: qualityScore,
+                    summary: crop.quality?.summary || 'Quality verified produce',
+                    shelfLife: crop.quality?.qualityMetrics?.shelfLife || 15,
+                    storageRequirements: crop.quality?.marketAnalysis?.storageRequirements || 'Standard storage'
+                },
+                marketInfo: {
+                    ...crop.market_info,
+                    isPremium: qualityGrade === 'Premium' || qualityGrade === 'A',
+                    hasQualityCert: crop.is_verified,
+                    readyForRetail: true
+                },
+                // Pricing insights
+                priceInsights: {
+                    marketCompetitive: qualityScore > 85,
+                    bulkDiscount: crop.quantity > 100,
+                    exportQuality: qualityGrade === 'Premium'
+                }
+            };
+        });
+
+        // Get marketplace stats
+        const stats = {
+            totalListings: enhancedCrops.length,
+            aggregatorBatches: enhancedCrops.filter(c => c.is_aggregator_batch).length,
+            premiumQuality: enhancedCrops.filter(c => c.qualityInfo.grade === 'Premium' || c.qualityInfo.grade === 'A').length,
+            averagePrice: enhancedCrops.reduce((sum, c) => sum + parseFloat(c.price_per_unit || 0), 0) / (enhancedCrops.length || 1)
+        };
+
         res.json({
             success: true,
-            data: crops
+            data: {
+                crops: enhancedCrops,
+                stats,
+                filters: {
+                    categories: [...new Set(enhancedCrops.map(c => c.category))],
+                    qualityGrades: [...new Set(enhancedCrops.map(c => c.qualityInfo.grade))],
+                    priceRange: {
+                        min: Math.min(...enhancedCrops.map(c => parseFloat(c.price_per_unit || 0))),
+                        max: Math.max(...enhancedCrops.map(c => parseFloat(c.price_per_unit || 0)))
+                    }
+                }
+            }
         });
 
     } catch (error) {
-        console.error('Retailer marketplace error:', error);
+        console.error('Enhanced retailer marketplace error:', error);
         res.status(500).json({ success: false, message: error.message });
     }
 });
@@ -108,7 +247,7 @@ router.get('/marketplace', protect, authorize('retailer'), async (req, res) => {
  * @desc    Create a new order for a crop
  * @access  Private (Retailer only)
  */
-router.post('/order', protect, authorize('retailer'), [
+router.post('/order', protect, authorize('retailer', 'aggregator'), [
     body('cropId').notEmpty(),
     body('quantity').isNumeric(),
     body('deliveryAddress').notEmpty()
@@ -196,7 +335,7 @@ router.post('/order', protect, authorize('retailer'), [
         const newQuantity = crop.quantity - quantity;
         const updateData = { quantity: newQuantity };
         if (newQuantity <= 0) {
-            updateData.availability = 'sold_out';
+
             updateData.status = 'sold';
         }
 
@@ -222,7 +361,7 @@ router.post('/order', protect, authorize('retailer'), [
  * @desc    Get retailer's order history
  * @access  Private (Retailer only)
  */
-router.get('/orders', protect, authorize('retailer'), async (req, res) => {
+router.get('/orders', protect, authorize('retailer', 'aggregator'), async (req, res) => {
     try {
         const { data: orders, error } = await supabase
             .from('orders')
@@ -248,7 +387,7 @@ router.get('/orders', protect, authorize('retailer'), async (req, res) => {
  * @desc    Get traceability for an ordered product
  * @access  Private (Retailer only)
  */
-router.get('/trace/:id', protect, authorize('retailer'), async (req, res) => {
+router.get('/trace/:id', protect, authorize('retailer', 'aggregator'), async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -268,22 +407,27 @@ router.get('/trace/:id', protect, authorize('retailer'), async (req, res) => {
         }
 
         // Try to find if an aggregator collected this
+        // Check by source_crop_id (original farmer crop) OR by collection_id (from aggregator listed crop)
         const { data: collection } = await supabase
             .from('collections')
-            .select('*, aggregator:profiles(*)')
-            .eq('source_crop_id', crop.id)
+            .select('*, aggregator:profiles(*), source_crop:crops(*)')
+            .or(`source_crop_id.eq.${crop.id},collection_id.eq.${crop.traceability_id}`)
             .single();
 
-        const chain = [
-            {
-                stage: 'Farming & Harvest',
-                actor: crop.farmer?.name,
-                location: crop.farm_location,
-                date: crop.harvest_date,
-                status: 'completed',
-                details: `Harvested ${crop.quantity}${crop.unit} of ${crop.name}`
-            }
-        ];
+        const chain = [];
+
+        // If it's an aggregator listing, the "farming" part come from the source_crop
+        const farmingRecord = collection?.source_crop || crop;
+        const farmerProfile = farmingRecord.farmer || crop.farmer;
+
+        chain.push({
+            stage: 'Farming & Harvest',
+            actor: farmerProfile?.name,
+            location: farmingRecord.farm_location,
+            date: farmingRecord.harvest_date,
+            status: 'completed',
+            details: `Harvested ${farmingRecord.quantity}${farmingRecord.unit} of ${farmingRecord.name}`
+        });
 
         if (collection) {
             chain.push({

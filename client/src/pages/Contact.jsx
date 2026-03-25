@@ -44,7 +44,7 @@ const Contact = () => {
                                 Connect.
                             </h1>
                             <p className="text-xl font-bold text-slate-400 leading-relaxed uppercase tracking-tight">
-                                Initiate contact with the CropConnect core development team or regional logistic hubs for high-integrity assistance.
+                                Initiate contact with the FarmFlow core development team or regional logistic hubs for high-integrity assistance.
                             </p>
                         </div>
 
@@ -65,7 +65,7 @@ const Contact = () => {
                         <div className="lg:col-span-2 space-y-12">
                             <div className="space-y-6">
                                 {[
-                                    { icon: Mail, label: 'Digital Channel', val: 'hello@cropconnect.io', color: 'bg-blue-500' },
+                                    { icon: Mail, label: 'Digital Channel', val: 'hello@farmflow.io', color: 'bg-blue-500' },
                                     { icon: Phone, label: 'Voice Frequency', val: '+91 98765 43210', color: 'bg-emerald-500' },
                                     { icon: MapPin, label: 'Regional Sector', val: 'Remote First, India', color: 'bg-indigo-500' }
                                 ].map((item, idx) => (

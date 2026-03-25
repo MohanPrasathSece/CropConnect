@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { QrCode, Camera, CheckCircle2, Loader2, X, Package, User, MapPin, ShieldCheck, Zap, AlertCircle, ArrowLeft, Activity, Fingerprint, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { aggregatorApi } from "../../utils/api";
+import { formatLocation } from "../../utils/format";
 
 export default function AggregatorQRScanner() {
     const navigate = useNavigate();
@@ -34,7 +35,7 @@ export default function AggregatorQRScanner() {
             setError(null);
         } catch (err) {
             console.error("Camera error:", err);
-            setError("Optical sensor access denied or offline. Proceed with manual verification.");
+            setError("Camera access denied. Please enter the code manually.");
         }
     };
 
@@ -65,7 +66,7 @@ export default function AggregatorQRScanner() {
                     setStream(null);
                 }
             } else {
-                setError(response.data.message || "Invalid Provenance Signal");
+                setError(response.data.message || "Invalid QR Code");
             }
         } catch (err) {
             console.error("Scan error:", err);
@@ -91,8 +92,8 @@ export default function AggregatorQRScanner() {
                         <ArrowLeft className="w-6 h-6 text-slate-400 group-hover:text-emerald-500" />
                     </button>
                     <div className="space-y-1">
-                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Provenance Sensor</h1>
-                        <p className="text-sm text-slate-500">Scan farmer production signatures to initiate regional intake protocols.</p>
+                        <h1 className="text-3xl font-bold text-slate-900 tracking-tight">QR Scanner</h1>
+                        <p className="text-sm text-slate-500">Scan farmer's QR code to collect their crops.</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
@@ -100,7 +101,7 @@ export default function AggregatorQRScanner() {
                         <Activity className="w-5 h-5 text-blue-600" />
                     </div>
                     <div className="pr-4">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Sensor Health</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Scanner Status</p>
                         <p className="text-sm font-bold text-slate-900 mt-1">Optimum</p>
                     </div>
                 </div>
@@ -152,7 +153,7 @@ export default function AggregatorQRScanner() {
                                             onClick={startCamera}
                                             className="w-full bg-slate-900 hover:bg-slate-800 text-white py-6 rounded-[32px] text-[10px] font-bold uppercase tracking-[0.3em] transition-all active:scale-95 shadow-2xl shadow-slate-900/10 flex items-center justify-center gap-4"
                                         >
-                                            <Camera className="h-5 w-5 text-emerald-500" /> Invoke Optical Sensor
+                                            <Camera className="h-5 w-5 text-emerald-500" /> Open Camera
                                         </button>
 
                                         <div className="relative">
@@ -163,7 +164,7 @@ export default function AggregatorQRScanner() {
                                         <div className="flex gap-3">
                                             <input
                                                 type="text"
-                                                placeholder="UID SEGMENT"
+                                                placeholder="ENTER FAST CODE"
                                                 value={manualCode}
                                                 onChange={(e) => setManualCode(e.target.value.toUpperCase())}
                                                 className="flex-1 bg-slate-50 border border-slate-100 rounded-[24px] px-8 py-5 text-xs font-bold text-slate-800 outline-none focus:bg-white focus:border-emerald-500/20 focus:ring-8 focus:ring-emerald-500/5 transition-all uppercase placeholder:text-slate-300"
@@ -181,7 +182,7 @@ export default function AggregatorQRScanner() {
                                     <div className="space-y-6 text-center">
                                         <div className="flex items-center justify-center gap-3">
                                             <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                                            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-[0.3em] animate-pulse">Scanning production segment...</p>
+                                            <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-[0.3em] animate-pulse">Scanning QR code...</p>
                                         </div>
                                         <button
                                             onClick={() => {
@@ -190,7 +191,7 @@ export default function AggregatorQRScanner() {
                                             }}
                                             className="w-full bg-slate-100 hover:bg-slate-200 text-slate-500 py-6 rounded-[32px] text-[10px] font-bold uppercase tracking-[0.3em] transition-all active:scale-95"
                                         >
-                                            <X className="h-4 w-4 inline mr-3" /> Abort Logic
+                                            <X className="h-4 w-4 inline mr-3" /> Cancel
                                         </button>
                                     </div>
                                 )}
@@ -202,7 +203,7 @@ export default function AggregatorQRScanner() {
                     </div>
                     <div className="flex items-center gap-4 px-10 py-5 bg-slate-900 rounded-[32px] text-white">
                         <Fingerprint className="w-5 h-5 text-emerald-500" />
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-white/60 leading-tight">Biometric sensor standby • Regional node hub Bhubaneswar</span>
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-white/60 leading-tight">Camera ready • Waiting for scan</span>
                     </div>
                 </div>
             ) : (
@@ -214,8 +215,8 @@ export default function AggregatorQRScanner() {
                             <CheckCircle2 className="w-12 h-12 text-emerald-500" />
                         </div>
                         <div className="text-center md:text-left order-1 md:order-2 space-y-2">
-                            <h2 className="text-4xl font-bold tracking-tighter">Provenance Synchronized</h2>
-                            <p className="text-[10px] text-white/80 font-bold uppercase tracking-[0.3em]">Identity Segment Validated across Regional production network</p>
+                            <h2 className="text-4xl font-bold tracking-tighter">Crop Found</h2>
+                            <p className="text-[10px] text-white/80 font-bold uppercase tracking-[0.3em]">Crop details successfully retrieved from the system</p>
                         </div>
                     </div>
 
@@ -227,27 +228,27 @@ export default function AggregatorQRScanner() {
                             </div>
                             <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-10 flex items-center gap-4">
                                 <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                                Producer Signature
+                                Farmer Details
                             </h2>
                             <div className="space-y-8">
                                 <div className="space-y-1">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Authorized Individual</p>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Farmer Name</p>
                                     <p className="text-2xl font-bold text-slate-900 tracking-tight">{scannedData.farmer.name}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Registered Node</p>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Farm Location</p>
                                     <div className="flex items-center gap-3">
                                         <MapPin className="w-4 h-4 text-emerald-500" />
-                                        <p className="text-sm font-bold text-slate-600 truncate">{scannedData.farmer.address?.full_address || scannedData.farmer.address || 'Proprietary Location'}</p>
+                                        <p className="text-sm font-bold text-slate-600 truncate">{formatLocation(scannedData.farmer.address) || 'Unknown Location'}</p>
                                     </div>
                                 </div>
                                 <div className="flex gap-12">
                                     <div className="space-y-1">
-                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Network Tier</p>
-                                        <p className="text-sm font-bold text-emerald-600 uppercase tracking-widest">Elite Producer</p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Farmer Status</p>
+                                        <p className="text-sm font-bold text-emerald-600 uppercase tracking-widest">Verified</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Reliability Score</p>
+                                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Rating</p>
                                         <p className="text-sm font-bold text-yellow-500">99.4/100</p>
                                     </div>
                                 </div>
@@ -261,19 +262,19 @@ export default function AggregatorQRScanner() {
                             </div>
                             <h2 className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-10 flex items-center gap-4">
                                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                                Cargo Specifications
+                                Crop Details
                             </h2>
                             <div className="space-y-8">
                                 <div className="space-y-1">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Primary Commodity</p>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Crop Name</p>
                                     <p className="text-2xl font-bold text-slate-900 tracking-tight capitalize">{scannedData.crop.name} <span className="text-emerald-500 font-bold ml-1 text-base">({scannedData.crop.variety})</span></p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Calculated Mass</p>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Total Quantity</p>
                                     <p className="text-sm font-bold text-slate-900 uppercase tracking-widest">{scannedData.crop.quantity} {scannedData.crop.unit}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Blockchain Segment Hash</p>
+                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Tracking ID</p>
                                     <div className="flex items-center gap-3">
                                         <ShieldCheck className="w-4 h-4 text-emerald-500" />
                                         <code className="text-[10px] font-mono text-slate-400 uppercase tracking-widest block bg-slate-50 px-3 py-1 rounded-lg border border-slate-100">{scannedData.crop.traceabilityId}</code>
@@ -290,8 +291,8 @@ export default function AggregatorQRScanner() {
                                 <ShieldCheck className="w-8 h-8 text-emerald-500" />
                             </div>
                             <div className="space-y-1">
-                                <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-[0.3em]">Network Security Guard Status: Active</p>
-                                <p className="text-sm text-white/50 font-bold uppercase tracking-widest">Ready for regional intake synchronization protocol</p>
+                                <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-[0.3em]">System Status: Active</p>
+                                <p className="text-sm text-white/50 font-bold uppercase tracking-widest">Ready to collect and process this crop.</p>
                             </div>
                         </div>
                         <div className="flex gap-4 w-full sm:w-auto">
@@ -299,13 +300,13 @@ export default function AggregatorQRScanner() {
                                 onClick={handleFinalize}
                                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-4 rounded-[28px] bg-white px-12 py-6 text-[10px] font-bold text-slate-900 uppercase tracking-[0.2em] shadow-2xl transition-all hover:bg-emerald-400 active:scale-95"
                             >
-                                <Zap className="w-5 h-5" /> Proceed to Intake
+                                <Zap className="w-5 h-5" /> Collect Crop
                             </button>
                             <button
                                 onClick={() => setScannedData(null)}
                                 className="px-10 rounded-[28px] bg-white/5 border border-white/10 text-[10px] font-bold text-white/40 uppercase tracking-widest hover:bg-white/10 transition-all"
                             >
-                                Abort
+                                Cancel
                             </button>
                         </div>
                     </div>

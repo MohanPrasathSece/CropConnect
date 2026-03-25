@@ -108,15 +108,15 @@ function MLImageAnalyzer() {
                         <Cpu className="w-5 h-5 text-emerald-400" />
                     </div>
                     <div>
-                        <h2 className="text-lg font-bold text-slate-900 tracking-tight">ML Image Quality Analyzer</h2>
+                        <h2 className="text-lg font-bold text-slate-900 tracking-tight">AI Quality Analyzer</h2>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                            Local RandomForest · No AI API · 100% On-Device
+                            Automated Image Analysis
                         </p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl">
                     <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Local ML Active</span>
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">AI Scanner Active</span>
                 </div>
             </div>
 
@@ -198,8 +198,8 @@ function MLImageAnalyzer() {
                                 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
                         >
                             {loading
-                                ? <><Loader2 className="w-4 h-4 animate-spin" /> Running ML Analysis...</>
-                                : <><Scan className="w-4 h-4 text-emerald-400" /> Analyze with Local ML</>
+                                ? <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing Image...</>
+                                : <><Scan className="w-4 h-4 text-emerald-400" /> Analyze Crop Image</>
                             }
                         </button>
 
@@ -300,7 +300,7 @@ function MLImageAnalyzer() {
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${d.severity === "High" ? "bg-red-100 text-red-600" :
-                                                            d.severity === "Medium" ? "bg-amber-100 text-amber-600" : "bg-blue-100 text-blue-600"
+                                                        d.severity === "Medium" ? "bg-amber-100 text-amber-600" : "bg-blue-100 text-blue-600"
                                                         }`}>{d.severity}</span>
                                                     <span className="text-[10px] font-bold text-slate-400">{d.affectedPercentage}%</span>
                                                 </div>
@@ -343,7 +343,7 @@ function MLImageAnalyzer() {
                                         <div className="text-right">
                                             <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Demand</p>
                                             <p className={`text-lg font-black ${result.marketRecommendation?.marketDemand === "High" ? "text-emerald-400" :
-                                                    result.marketRecommendation?.marketDemand === "Medium" ? "text-amber-400" : "text-red-400"
+                                                result.marketRecommendation?.marketDemand === "Medium" ? "text-amber-400" : "text-red-400"
                                                 }`}>{result.marketRecommendation?.marketDemand}</p>
                                         </div>
                                     </div>
@@ -385,7 +385,7 @@ function MLImageAnalyzer() {
                                 </div>
                                 <p className="text-sm font-bold text-slate-400">Upload a crop image to get started</p>
                                 <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest max-w-xs">
-                                    The local RandomForest model will extract visual features and predict quality grade
+                                    Our AI automatically detects quality, defects, and purity from your photo
                                 </p>
                             </div>
                         )}
@@ -441,8 +441,8 @@ export default function QualityVerification() {
                         <ArrowLeft className="w-5 h-5 text-slate-400 group-hover:text-emerald-500" />
                     </button>
                     <div className="space-y-1">
-                        <h1 className="text-2xl text-slate-900 tracking-tight font-bold">Neural Quality Lab</h1>
-                        <p className="text-sm text-slate-500">ML-powered crop quality verification — image analysis runs entirely on local models.</p>
+                        <h1 className="text-2xl text-slate-900 tracking-tight font-bold">Quality Check</h1>
+                        <p className="text-sm text-slate-500">View and verify the quality of submitted crop batches.</p>
                     </div>
                 </div>
                 <div className="flex gap-6">
@@ -456,7 +456,7 @@ export default function QualityVerification() {
                         </div>
                     </div>
                     <div className="text-right border-l border-slate-100 pl-6">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Queue Backlog</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pending Checks</p>
                         <p className="text-lg font-bold text-slate-900 tracking-tighter mt-1">14 Batches</p>
                     </div>
                 </div>
@@ -465,8 +465,8 @@ export default function QualityVerification() {
             {/* Tab Switcher */}
             <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl w-fit">
                 {[
-                    { key: "batches", label: "Batch Queue", icon: Scan },
-                    { key: "ml-scanner", label: "ML Image Scanner", icon: Cpu },
+                    { key: "batches", label: "Pending Checks", icon: Scan },
+                    { key: "ml-scanner", label: "AI Quality Scanner", icon: Cpu },
                 ].map(({ key, label, icon: Icon }) => (
                     <button
                         key={key}
@@ -494,10 +494,9 @@ export default function QualityVerification() {
                         <div>
                             <p className="text-sm font-bold text-white">How it works</p>
                             <p className="text-xs text-slate-400 mt-1">
-                                Upload any crop image. The system extracts <span className="text-emerald-400 font-bold">12 visual features</span> —
-                                RGB &amp; HSV color stats, LBP texture uniformity, defect-pixel ratio, and shape regularity —
-                                then feeds them into a <span className="text-emerald-400 font-bold">trained RandomForest model</span> to predict quality grade and score.
-                                <span className="text-slate-300 font-bold"> No external AI or internet required.</span>
+                                Upload any crop image. The system automatically inspects color, texture,
+                                and defects to <span className="text-emerald-400 font-bold">estimate crop quality</span> and purity score.
+                                <span className="text-slate-300 font-bold"> Get results instantly on your device.</span>
                             </p>
                         </div>
                     </div>
@@ -522,7 +521,7 @@ export default function QualityVerification() {
                             onClick={() => setActiveTab("ml-scanner")}
                             className="flex items-center justify-center gap-3 px-8 py-5 bg-slate-900 text-white rounded-[24px] text-[10px] font-bold uppercase tracking-widest hover:bg-slate-800 transition-all active:scale-95 shadow-xl shadow-slate-900/10"
                         >
-                            <Cpu className="w-4 h-4 text-emerald-500" /> ML Scan
+                            <Cpu className="w-4 h-4 text-emerald-500" /> AI Scanner
                         </button>
                     </div>
 
@@ -540,7 +539,7 @@ export default function QualityVerification() {
                                             </div>
                                             <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 border border-emerald-100 rounded-lg">
                                                 <Activity className="w-3 h-3 text-emerald-500" />
-                                                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">ML Score: 94/100</span>
+                                                <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Quality Score: 94/100</span>
                                             </div>
                                         </div>
 
@@ -555,7 +554,7 @@ export default function QualityVerification() {
 
                                         <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/50 inline-flex items-center gap-3">
                                             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                                            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">ML Prediction Matrix:</span>
+                                            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Suggested Quality:</span>
                                             <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-[0.2em]">{batch.aiGrade}</span>
                                         </div>
 
@@ -563,7 +562,7 @@ export default function QualityVerification() {
                                             onClick={() => fetchMarketAnalysis(batch.crop)}
                                             className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase tracking-widest hover:text-emerald-500 transition-colors"
                                         >
-                                            <Brain className="w-3 h-3" /> Fetch Market Value Forecast
+                                            <Brain className="w-3 h-3" /> Get Recommended Price
                                         </button>
 
                                         {loadingAnalysis && (
@@ -577,7 +576,7 @@ export default function QualityVerification() {
                                                 <div className="flex items-center gap-3">
                                                     <TrendingUp className="w-4 h-4 text-emerald-400" />
                                                     <div>
-                                                        <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest leading-none">Value Forecast</p>
+                                                        <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest leading-none">Suggested Price</p>
                                                         <p className="text-sm font-bold text-white">₹{marketAnalysis.predictedPrice}/kg</p>
                                                     </div>
                                                 </div>
@@ -591,7 +590,7 @@ export default function QualityVerification() {
 
                                     {/* Verification Assets */}
                                     <div className="flex gap-4">
-                                        {["Origin Sample", "Intake Scan"].map((label, idx) => (
+                                        {["Farmer Photo", "Scanner Image"].map((label, idx) => (
                                             <div key={idx} className="group/img relative">
                                                 <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-[32px] bg-slate-50 border border-slate-100 flex items-center justify-center p-4 relative overflow-hidden group-hover/img:bg-white group-hover/img:border-emerald-500/20 transition-all duration-500">
                                                     <div className="text-center space-y-2 relative z-10">
@@ -612,7 +611,7 @@ export default function QualityVerification() {
                                                     onClick={() => handleAccept(batch.id)}
                                                     className="flex-1 xl:w-full inline-flex items-center justify-center gap-3 rounded-[24px] bg-slate-900 px-8 py-5 text-[10px] font-bold text-white uppercase tracking-widest transition-all hover:bg-slate-800 shadow-xl shadow-slate-900/10 active:scale-95"
                                                 >
-                                                    <ShieldCheck className="h-4 w-4 text-emerald-500" /> Finalize Grade
+                                                    <ShieldCheck className="h-4 w-4 text-emerald-500" /> Verify Quality
                                                 </button>
                                                 <button
                                                     onClick={() => setDisputeOpen(batch.id)}
@@ -624,12 +623,12 @@ export default function QualityVerification() {
                                         ) : batch.status === "verified" ? (
                                             <div className="flex-1 xl:w-full flex xl:flex-col items-center gap-3 text-emerald-600 bg-emerald-50/50 p-6 rounded-[32px] border border-emerald-100">
                                                 <ShieldCheck className="h-6 w-6" />
-                                                <span className="text-[10px] font-bold uppercase tracking-widest text-center">Quality Immutable on Ledger</span>
+                                                <span className="text-[10px] font-bold uppercase tracking-widest text-center">Quality Verified</span>
                                             </div>
                                         ) : (
                                             <div className="flex-1 xl:w-full flex xl:flex-col items-center gap-3 text-slate-400 bg-slate-50 p-6 rounded-[32px] border border-slate-100">
                                                 <MessageSquare className="h-6 w-6" />
-                                                <span className="text-[10px] font-bold uppercase tracking-widest text-center">Resolution Protocol Active</span>
+                                                <span className="text-[10px] font-bold uppercase tracking-widest text-center">Dispute in Progress</span>
                                             </div>
                                         )}
                                     </div>
@@ -648,7 +647,7 @@ export default function QualityVerification() {
             {showToast && (
                 <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[110] bg-slate-900 text-white px-10 py-5 rounded-[24px] shadow-2xl animate-in slide-in-from-bottom-10 flex items-center gap-4 border border-slate-800">
                     <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                    <span className="text-[10px] font-bold uppercase tracking-widest">ML Grade Recorded on Blockchain Ledger</span>
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Quality Verified and Saved</span>
                 </div>
             )}
 
@@ -659,8 +658,8 @@ export default function QualityVerification() {
                         <div className="p-12 space-y-10">
                             <div className="flex items-center justify-between">
                                 <div className="space-y-1">
-                                    <h2 className="text-2xl text-slate-900 font-bold tracking-tight">Quality Contestation</h2>
-                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Dispute Signal: {disputeOpen}</p>
+                                    <h2 className="text-2xl text-slate-900 font-bold tracking-tight">Raise Dispute</h2>
+                                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Batch ID: {disputeOpen}</p>
                                 </div>
                                 <button onClick={() => setDisputeOpen(null)} className="p-4 bg-slate-50 rounded-2xl text-slate-400 hover:text-slate-900 transition-colors">
                                     <X className="w-6 h-6" />
@@ -669,7 +668,7 @@ export default function QualityVerification() {
                             <form onSubmit={handleDispute} className="space-y-8">
                                 <div className="space-y-6">
                                     <div className="space-y-4">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Proposed Correction Tier</label>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Suggested Quality Grade</label>
                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                             {['Grade A', 'Grade B', 'Grade C', 'Rejected'].map(grade => (
                                                 <button key={grade} type="button"
@@ -680,12 +679,12 @@ export default function QualityVerification() {
                                         </div>
                                     </div>
                                     <div className="space-y-2">
-                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Laboratory Remarks &amp; Deviations</label>
+                                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Reason for Dispute</label>
                                         <textarea
                                             value={remarks}
                                             onChange={e => setRemarks(e.target.value)}
                                             className="w-full rounded-[28px] border border-slate-100 bg-slate-50 py-6 px-8 text-sm font-bold text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-red-500/20 focus:outline-none transition-all min-h-[160px]"
-                                            placeholder="Describe optical discrepancies, moisture deviance, or physical contamination detected..."
+                                            placeholder="Describe any quality issues like color mismatch, moisture level, or defects..."
                                             required
                                         />
                                     </div>
@@ -694,11 +693,11 @@ export default function QualityVerification() {
                                     <button type="submit" disabled={isProcessing}
                                         className="flex-1 inline-flex items-center justify-center gap-4 rounded-[32px] bg-red-500 px-10 py-6 text-[10px] font-bold text-white uppercase tracking-widest shadow-2xl shadow-red-500/20 hover:bg-red-600 transition-all active:scale-95 disabled:opacity-50">
                                         {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <AlertTriangle className="w-5 h-5" />}
-                                        {isProcessing ? "Processing Signal..." : "Commit Dispute Signal"}
+                                        {isProcessing ? "Submitting..." : "Submit Dispute"}
                                     </button>
                                     <button type="button" onClick={() => setDisputeOpen(null)}
                                         className="px-10 rounded-[32px] bg-slate-100 text-[10px] font-bold text-slate-500 uppercase tracking-widest hover:bg-slate-200 transition-all">
-                                        Abort
+                                        Cancel
                                     </button>
                                 </div>
                             </form>
